@@ -58,8 +58,9 @@ curl https://thewhitenigs-spectre-backend.hf.space/health
 ### Option A: Full Docker (zero local deps)
 
 ```powershell
-git clone <repo>
-cd spectre
+# Kloning repositori backend (standalone)
+git clone https://github.com/fadhiilahahmadzikri/spectre-backend-single.git spectre-backend
+cd spectre-backend
 make docker-dev
 ```
 
