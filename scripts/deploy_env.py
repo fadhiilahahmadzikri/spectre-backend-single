@@ -107,9 +107,9 @@ def cmd_push(args: argparse.Namespace) -> None:
     repo_id = args.repo or SPACE_ID
     env_path = Path(args.env).expanduser().resolve()
 
-    print(f"╔══════════════════════════════════════════════╗")
-    print(f"║  Spectre — HF Space Env Deployer             ║")
-    print(f"╚══════════════════════════════════════════════╝")
+    print("=" * 50)
+    print("  Spectre -- HF Space Env Deployer")
+    print("=" * 50)
     print(f"  User     : {username}")
     print(f"  Space    : {repo_id}")
     print(f"  Env file : {env_path}")
@@ -122,11 +122,11 @@ def cmd_push(args: argparse.Namespace) -> None:
 
     # Display preview
     print(f"  Found {len(secrets)} secrets to push:")
-    print(f"  {'─' * 50}")
+    print(f"  {'-' * 50}")
     for key, val in secrets.items():
         preview = val[:30] + "..." if len(val) > 30 else val
         print(f"  {key:<35} = {preview}")
-    print(f"  {'─' * 50}")
+    print(f"  {'-' * 50}")
     print()
 
     if not args.yes:
@@ -142,10 +142,10 @@ def cmd_push(args: argparse.Namespace) -> None:
     for key, value in secrets.items():
         try:
             api.add_space_secret(repo_id=repo_id, key=key, value=value)
-            print(f"  ✓ {key}")
+            print(f"  [OK] {key}")
             success += 1
         except Exception as e:
-            print(f"  ✗ {key} — {str(e)[:60]}")
+            print(f"  [FAIL] {key} — {str(e)[:60]}")
             failed += 1
 
     print()
@@ -160,7 +160,7 @@ def cmd_list(args: argparse.Namespace) -> None:
     repo_id = args.repo or SPACE_ID
 
     print(f"  Secrets on {repo_id}:")
-    print(f"  {'─' * 40}")
+    print(f"  {'-' * 40}")
 
     keys = list_secrets(api, repo_id)
     if not keys:
@@ -168,7 +168,7 @@ def cmd_list(args: argparse.Namespace) -> None:
     else:
         for i, key in enumerate(keys, 1):
             print(f"  {i:3}. {key}")
-    print(f"  {'─' * 40}")
+    print(f"  {'-' * 40}")
     print(f"  Total: {len(keys)} secrets")
 
 
@@ -185,9 +185,9 @@ def cmd_delete(args: argparse.Namespace) -> None:
 
     try:
         api.delete_space_secret(repo_id=repo_id, key=key)
-        print(f"  ✓ Deleted: {key}")
+        print(f"  [OK] Deleted: {key}")
     except Exception as e:
-        print(f"  ✗ Failed: {e}")
+        print(f"  [FAIL] Failed: {e}")
 
 
 def main() -> None:
