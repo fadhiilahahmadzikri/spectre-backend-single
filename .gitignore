@@ -54,8 +54,7 @@ artifact/*.h5
 artifact/*.pb
 artifact/**/*.h5
 artifact/**/*.pb
-artifact/*.keras
-artifact/**/*.keras
+# NOTE: .keras files are NOT ignored — tracked via Git LFS for HF deployment
 *.zip
 *.tar.gz
 *.7z
