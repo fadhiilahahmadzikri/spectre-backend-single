@@ -1,4 +1,4 @@
-﻿SHELL := powershell.exe
+SHELL := powershell.exe
 .SHELLFLAGS := -NoProfile -Command
 
 .PHONY: help install dev dev-win test-poc worker lint format typecheck check test test-unit test-integration test-cov test-newman test-newman-report test-all migrate migrate-new migrate-down seed seed-force seed-reset seed-list docker-up docker-down docker-build docker-logs docs docs-redoc openapi-export health env-check bootstrap reset ci clean clean-pyc
@@ -182,18 +182,7 @@ health-hf: ## Check API health (Hugging Face Spaces deployment)
 env-check: ## Validate all development dependencies are installed
 	powershell -ExecutionPolicy Bypass -File scripts/audit-test-deps.ps1
 
-# ==============================================================================
-# Frontend (Validation Client)
-# ==============================================================================
 
-frontend-install: ## Install frontend dependencies
-	Set-Location frontend; npm install
-
-frontend-dev: ## Start frontend dev server (Vite)
-	Set-Location spectre-frontend; npm run dev
-
-frontend-build: ## Build frontend for production
-	Set-Location frontend; npm run build
 
 # ==============================================================================
 # Composite Workflows
