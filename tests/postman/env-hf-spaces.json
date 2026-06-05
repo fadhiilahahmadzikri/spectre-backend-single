@@ -1,0 +1,10 @@
+{
+  "name": "Hugging Face Spaces",
+  "values": [
+    { "key": "base_url", "value": "https://thewhitenigs-spectre-backend.hf.space", "enabled": true },
+    { "key": "auth_token", "value": "", "enabled": true },
+    { "key": "refresh_token", "value": "", "enabled": true },
+    { "key": "app_id", "value": "", "enabled": true },
+    { "key": "api_key", "value": "spk_d602c7bc949464b18c0fafc1c3c5d4f048bf2a524acad217", "enabled": true }
+  ]
+}

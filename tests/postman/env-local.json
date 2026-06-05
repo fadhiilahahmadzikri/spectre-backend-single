@@ -1,0 +1,10 @@
+{
+  "name": "Local Development",
+  "values": [
+    { "key": "base_url", "value": "http://localhost:8000", "enabled": true },
+    { "key": "auth_token", "value": "", "enabled": true },
+    { "key": "refresh_token", "value": "", "enabled": true },
+    { "key": "app_id", "value": "", "enabled": true },
+    { "key": "api_key", "value": "", "enabled": true }
+  ]
+}

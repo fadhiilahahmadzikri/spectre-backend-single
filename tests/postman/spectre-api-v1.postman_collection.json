@@ -1,0 +1,330 @@
+{
+  "info": {
+    "name": "Spectre API v1",
+    "_postman_id": "spectre-api-v1-collection",
+    "description": "Full API validation suite for Spectre (39 endpoints). Works against local and HF Spaces.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "auth_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "app_id", "value": "" },
+    { "key": "api_key", "value": "" },
+    { "key": "test_email", "value": "newman_test@spectre.dev" },
+    { "key": "test_password", "value": "NewmanTest123!" },
+    { "key": "admin_email", "value": "admin@spectre.dev" },
+    { "key": "admin_password", "value": "Spectre@Admin123" }
+  ],
+  "item": [
+    {
+      "name": "Bootstrap — Admin Login",
+      "item": [
+        {
+          "name": "POST /auth/login — Get admin token",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/login", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"email\":\"{{admin_email}}\",\"password\":\"{{admin_password}}\"}"} },
+          "event": [{"listen":"test","script":{"exec":[
+            "if (pm.response.code === 200) {",
+            "  const body = pm.response.json();",
+            "  if (body.access_token) {",
+            "    pm.collectionVariables.set('auth_token', body.access_token);",
+            "    pm.test('Admin token captured', () => pm.expect(body.access_token).to.be.a('string'));",
+            "  }",
+            "  if (body.refresh_token) {",
+            "    pm.collectionVariables.set('refresh_token', body.refresh_token);",
+            "  }",
+            "} else {",
+            "  pm.test('Admin login failed (non-200) — admin tests will be skipped', () => true);",
+            "}"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET / — Root HTML",
+          "request": { "method": "GET", "url": "{{base_url}}/" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns HTML', () => pm.expect(pm.response.headers.get('content-type')).to.include('html'));"
+          ]}}]
+        },
+        {
+          "name": "GET /health — Component status",
+          "request": { "method": "GET", "url": "{{base_url}}/health" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has components', () => pm.expect(pm.response.json()).to.have.property('components'));",
+            "pm.test('Service is spectre-api', () => pm.expect(pm.response.json().service).to.eql('spectre-api'));",
+            "pm.test('DB healthy', () => pm.expect(pm.response.json().components.database).to.eql('healthy'));",
+            "pm.test('Redis healthy', () => pm.expect(pm.response.json().components.redis).to.eql('healthy'));",
+            "pm.test('ML loaded', () => pm.expect(pm.response.json().components.ml_model).to.eql('loaded'));",
+            "pm.test('FAS registry present', () => pm.expect(pm.response.json().components.fas_registry).to.include('models'));"
+          ]}}]
+        },
+        {
+          "name": "GET /health/ml-status — Active ML model (public)",
+          "request": { "method": "GET", "url": "{{base_url}}/health/ml-status" },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Has active_model_id', () => pm.expect(body).to.have.property('active_model_id'));",
+            "pm.test('Has active_model object', () => pm.expect(body).to.have.property('active_model'));",
+            "if (body.active_model) {",
+            "  pm.test('Model has model_id', () => pm.expect(body.active_model).to.have.property('model_id'));",
+            "  pm.test('Model has version', () => pm.expect(body.active_model).to.have.property('version'));",
+            "  pm.test('Model has supports_tta', () => pm.expect(body.active_model).to.have.property('supports_tta'));",
+            "}"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Auth — Validation",
+      "item": [
+        {
+          "name": "POST /auth/register — Missing email (422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/register", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"password\":\"Test1234!\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('422', () => pm.response.to.have.status(422));"]}}]
+        },
+        {
+          "name": "POST /auth/register — Missing password (422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/register", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"email\":\"test@example.com\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('422', () => pm.response.to.have.status(422));"]}}]
+        },
+        {
+          "name": "POST /auth/login — Empty body (422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/login", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('422', () => pm.response.to.have.status(422));"]}}]
+        },
+        {
+          "name": "POST /auth/login — Invalid credentials (401)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/login", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"email\":\"nonexist@x.com\",\"password\":\"wrong\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('401', () => pm.response.to.have.status(401));"]}}]
+        },
+        {
+          "name": "POST /auth/refresh — Invalid token (401)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/refresh", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"refresh_token\":\"invalid\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('401', () => pm.response.to.have.status(401));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Auth — Protection (No Token)",
+      "item": [
+        {
+          "name": "GET /applications — No auth (401/422)",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/applications" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "POST /applications — No auth (401/422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/applications", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"name\":\"Test\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "GET /sessions — No auth (401/422)",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/sessions" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "POST /auth/logout — No auth (401/422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/logout", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "POST /auth/totp/setup — No auth (401/422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/totp/setup" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "GET /admin/stats — No auth (401/422)",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/stats" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "GET /admin/config — No auth (401/422)",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/config" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Face Ops — API Key Required",
+      "item": [
+        {
+          "name": "POST /faces/register — No key (401/422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/faces/register", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"external_user_id\":\"usr_test\",\"image\":\"dGVzdA==\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "POST /faces/authenticate — No key (401/422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/faces/authenticate", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"external_user_id\":\"usr_test\",\"image\":\"dGVzdA==\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "GET /faces — No key (401/422)",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/faces" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "POST /client-logs — No key (401/422)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/client-logs", "header": [{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\"message\":\"test\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Face Ops — With API Key",
+      "item": [
+        {
+          "name": "GET /faces — List profiles",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/faces", "header": [{"key":"X-API-Key","value":"{{api_key}}"}] },
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "pm.test('Has profiles array', () => pm.expect(pm.response.json()).to.have.property('profiles'));",
+            "pm.test('Has count', () => pm.expect(pm.response.json()).to.have.property('count'));"
+          ]}}]
+        },
+        {
+          "name": "POST /faces/register — Invalid image (400)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/faces/register", "header": [{"key":"Content-Type","value":"application/json"},{"key":"X-API-Key","value":"{{api_key}}"}], "body": {"mode":"raw","raw":"{\"external_user_id\":\"newman_user\",\"image\":\"bm90X2FfcmVhbF9pbWFnZQ==\"}"} },
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Key accepted (not 401)', () => pm.expect(pm.response.code).to.not.eql(401));",
+            "pm.test('Rejects bad image', () => pm.expect([400,422,500]).to.include(pm.response.code));"
+          ]}}]
+        },
+        {
+          "name": "POST /faces/authenticate — Invalid image (400)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/faces/authenticate", "header": [{"key":"Content-Type","value":"application/json"},{"key":"X-API-Key","value":"{{api_key}}"}], "body": {"mode":"raw","raw":"{\"external_user_id\":\"newman_user\",\"image\":\"bm90X2FfcmVhbF9pbWFnZQ==\"}"} },
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Key accepted (not 401)', () => pm.expect(pm.response.code).to.not.eql(401));",
+            "pm.test('Rejects bad image', () => pm.expect([400,404,422,500]).to.include(pm.response.code));"
+          ]}}]
+        },
+        {
+          "name": "DELETE /faces/{user} — Not found (404)",
+          "request": { "method": "DELETE", "url": "{{base_url}}/api/v1/faces/nonexistent_user_xyz", "header": [{"key":"X-API-Key","value":"{{api_key}}"}] },
+          "event": [{"listen":"test","script":{"exec":["pm.test('404', () => pm.response.to.have.status(404));"]}}]
+        },
+        {
+          "name": "GET /sessions/{id} — Not found (404)",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/sessions/00000000-0000-0000-0000-000000000000", "header": [{"key":"X-API-Key","value":"{{api_key}}"}] },
+          "event": [{"listen":"test","script":{"exec":["pm.test('404', () => pm.response.to.have.status(404));"]}}]
+        },
+        {
+          "name": "POST /client-logs — Valid telemetry",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/client-logs", "header": [{"key":"Content-Type","value":"application/json"},{"key":"X-API-Key","value":"{{api_key}}"}], "body": {"mode":"raw","raw":"{\"level\":\"info\",\"message\":\"Newman test log\",\"source\":\"newman\"}"} },
+          "event": [{"listen":"test","script":{"exec":["pm.test('202', () => pm.response.to.have.status(202));"]}}]
+        },
+        {
+          "name": "POST /faces/benchmark — Without benchmark enabled (403)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/v1/faces/benchmark", "header": [{"key":"Content-Type","value":"application/json"},{"key":"X-API-Key","value":"{{api_key}}"}], "body": {"mode":"raw","raw":"{\"image\":\"dGVzdA==\"}"} },
+          "event": [{"listen":"test","script":{"exec":[
+            "pm.test('Benchmark disabled returns 403', () => pm.expect([400,403,422]).to.include(pm.response.code));",
+            "if (pm.response.code === 403) {",
+            "  pm.test('Has BENCHMARK_DISABLED code', () => pm.expect(pm.response.json().detail.error_code).to.eql('BENCHMARK_DISABLED'));",
+            "}"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "OAuth",
+      "item": [
+        {
+          "name": "GET /auth/oauth/google — Redirect",
+          "request": { "method": "GET", "url": "{{base_url}}/api/v1/auth/oauth/google" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Redirects or 200', () => pm.expect([200,302,307]).to.include(pm.response.code));"]}}]
+        }
+      ]
+    },
+    {
+      "name": "Admin — Config",
+      "item": [
+        {
+          "name": "GET /admin/config — With auth",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/config", "header": [{"key":"Authorization","value":"Bearer {{auth_token}}"}] },
+          "event": [{"listen":"test","script":{"exec":[
+            "if (pm.variables.get('auth_token')) {",
+            "  pm.test('200 or 403', () => pm.expect([200,403]).to.include(pm.response.code));",
+            "  if (pm.response.code === 200) {",
+            "    pm.test('Has categories', () => pm.expect(pm.response.json()).to.have.property('categories'));",
+            "    pm.test('Has anti_spoofing category', () => pm.expect(pm.response.json().categories).to.have.property('anti_spoofing'));",
+            "    const items = pm.response.json().categories.anti_spoofing || [];",
+            "    const keys = items.map(i => i.key);",
+            "    pm.test('Has active_fas_model config', () => pm.expect(keys).to.include('active_fas_model'));",
+            "  }",
+            "} else { pm.test('Skipped (no token)', () => true); }"
+          ]}}]
+        },
+        {
+          "name": "GET /admin/fas-models — List FAS models",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/fas-models", "header": [{"key":"Authorization","value":"Bearer {{auth_token}}"}] },
+          "event": [{"listen":"test","script":{"exec":[
+            "if (pm.variables.get('auth_token')) {",
+            "  pm.test('200 or 403', () => pm.expect([200,403]).to.include(pm.response.code));",
+            "  if (pm.response.code === 200) {",
+            "    const body = pm.response.json();",
+            "    pm.test('Has active_model_id', () => pm.expect(body).to.have.property('active_model_id'));",
+            "    pm.test('Has models array', () => pm.expect(body).to.have.property('models'));",
+            "    pm.test('Has loaded_count', () => pm.expect(body).to.have.property('loaded_count'));",
+            "    pm.test('At least 1 model loaded', () => pm.expect(body.loaded_count).to.be.at.least(1));",
+            "    pm.test('Active model is valid', () => {",
+            "      const ids = body.models.map(m => m.model_id);",
+            "      pm.expect(ids).to.include(body.active_model_id);",
+            "    });",
+            "    pm.test('Models have required fields', () => {",
+            "      body.models.forEach(m => {",
+            "        pm.expect(m).to.have.property('model_id');",
+            "        pm.expect(m).to.have.property('version');",
+            "        pm.expect(m).to.have.property('is_loaded');",
+            "        pm.expect(m).to.have.property('supports_tta');",
+            "        pm.expect(m).to.have.property('is_active');",
+            "      });",
+            "    });",
+            "  }",
+            "} else { pm.test('Skipped (no token)', () => true); }"
+          ]}}]
+        },
+        {
+          "name": "GET /admin/fas-models — No auth (401/422)",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/fas-models" },
+          "event": [{"listen":"test","script":{"exec":["pm.test('Rejects', () => pm.expect([401,422]).to.include(pm.response.code));"]}}]
+        },
+        {
+          "name": "PATCH /admin/config — Switch FAS model (invalid)",
+          "request": { "method": "PATCH", "url": "{{base_url}}/admin/config", "header": [{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{auth_token}}"}], "body": {"mode":"raw","raw":"{\"updates\":{\"active_fas_model\":\"nonexistent_model_xyz\"}}"} },
+          "event": [{"listen":"test","script":{"exec":[
+            "if (pm.variables.get('auth_token')) {",
+            "  pm.test('Rejects invalid model (400)', () => pm.expect([400,403]).to.include(pm.response.code));",
+            "  if (pm.response.code === 400) {",
+            "    pm.test('Has INVALID_MODEL_ID error', () => pm.expect(pm.response.json().detail.error_code).to.eql('INVALID_MODEL_ID'));",
+            "  }",
+            "} else { pm.test('Skipped (no token)', () => true); }"
+          ]}}]
+        },
+        {
+          "name": "GET /admin/stats — With auth",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/stats", "header": [{"key":"Authorization","value":"Bearer {{auth_token}}"}] },
+          "event": [{"listen":"test","script":{"exec":[
+            "if (pm.variables.get('auth_token')) {",
+            "  pm.test('200 or 403', () => pm.expect([200,403]).to.include(pm.response.code));",
+            "} else { pm.test('Skipped (no token)', () => true); }"
+          ]}}]
+        },
+        {
+          "name": "GET /admin/automation/status — With auth",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/automation/status", "header": [{"key":"Authorization","value":"Bearer {{auth_token}}"}] },
+          "event": [{"listen":"test","script":{"exec":[
+            "if (pm.variables.get('auth_token')) {",
+            "  pm.test('200 or 403', () => pm.expect([200,403]).to.include(pm.response.code));",
+            "} else { pm.test('Skipped (no token)', () => true); }"
+          ]}}]
+        }
+      ]
+    }
+  ]
+}

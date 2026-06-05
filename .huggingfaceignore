@@ -1,0 +1,115 @@
+# ==============================================================================
+# Spectre — Hugging Face Spaces Deploy Ignore
+# SINGLE SOURCE OF TRUTH — replaces both .gitignore and .huggingfaceignore
+# for the deploy.py upload. Only pure backend + infra files should be uploaded.
+# ==============================================================================
+
+# ── Frontend / SDK (NOT part of backend deploy) ──────────────────────────
+spectre-frontend/
+spectre-snap/
+example-client/
+poc/
+
+# ── Virtual environment ──────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Git ──────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+
+# ── Python caches ────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+
+# ── Build output ─────────────────────────────────────────────────────────
+dist/
+build/
+
+# ── Node (shouldn't exist in backend, but just in case) ──────────────────
+node_modules/
+package.json
+package-lock.json
+pnpm-lock.yaml
+
+# ── IDE ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Environment files (secrets — pushed via deploy.py secrets flow) ──────
+.env
+.env.local
+.env.*.local
+.env.spaces
+
+# ── Dev tooling ──────────────────────────────────────────────────────────
+.agents/
+.conductor/
+.gemini/
+
+# ── Testing ──────────────────────────────────────────────────────────────
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+reports/
+
+# ── Logs & temp ──────────────────────────────────────────────────────────
+logs/
+*.log
+*.tmp
+
+# ── Local database ───────────────────────────────────────────────────────
+spectre.db
+*.db
+
+# ── Local Docker (HF has its own Dockerfile) ─────────────────────────────
+docker-compose*.yml
+Dockerfile.local
+
+# ── Dev config (not needed on HF) ────────────────────────────────────────
+Makefile
+ruff.toml
+.python-version
+uv.lock
+
+# ── Documentation (not needed on runtime) ────────────────────────────────
+Docs/
+
+# ── OS files ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Model weights (large files, handled by HF LFS or downloaded at runtime)
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+.cache/
+
+# ── Deploy script itself ────────────────────────────────────────────────
+deploy.py
+_verify_deploy.py
+clone_scan_feature.py
+hf_sec.py
+
+# ── Dev-only directories (not needed at runtime) ────────────────────────
+conductor/
+kaggle/
+scripts/
+multimodel/
+.kiro/
+.github/

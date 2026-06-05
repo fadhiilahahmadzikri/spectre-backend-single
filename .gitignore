@@ -1,0 +1,103 @@
+# ==============================================================================
+# Spectre — .gitignore
+# For local development. NOT used by deploy.py (see .huggingfaceignore).
+# ==============================================================================
+
+# ── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Virtual environment ──────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── IDE ──────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*.sw?
+*~
+.project
+.settings/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ── Environment files ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.local
+.env.spaces
+.env.docker
+
+# ── Database files ───────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── ML model binaries ───────────────────────────────────────────────────
+/models/
+*.tflite
+artifact/*.h5
+artifact/*.pb
+artifact/**/*.h5
+artifact/**/*.pb
+artifact/*.keras
+artifact/**/*.keras
+*.zip
+*.tar.gz
+*.7z
+
+# ── Testing ──────────────────────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── OS ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Docker ───────────────────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Logs ─────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── Node (all subprojects) ───────────────────────────────────────────────
+node_modules/
+dist-ssr/
+
+# ── Alembic ──────────────────────────────────────────────────────────────
+migrations/versions/__pycache__/
+
+# ── uv ───────────────────────────────────────────────────────────────────
+uv.lock
+
+# ── Dev tooling ──────────────────────────────────────────────────────────
+.agent/
+.agents/
+.antigravitycli/
+.cache/
+.conductor/
+.kiro/
+graphify-out/

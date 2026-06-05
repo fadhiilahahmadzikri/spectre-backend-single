@@ -1,0 +1,127 @@
+# ==============================================================================
+# Spectre — Docker Compose (Full Development Stack)
+#
+# Usage: docker compose -f docker-compose.dev.yml up
+#
+# Provides the COMPLETE development ecosystem:
+#   - PostgreSQL 16 (database)
+#   - Redis 7 (cache + broker)
+#   - Spectre API (FastAPI, hot-reload via volume mount)
+#   - Celery Worker (async webhook delivery)
+#   - Newman (API contract tests — run on demand)
+#
+# Zero local dependencies required. Clone → docker compose up → working.
+# ==============================================================================
+
+services:
+  # ─── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: spectre-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: spectre_dev_pass
+      POSTGRES_DB: spectre
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d spectre"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ─── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: spectre-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
+ 
+  # ─── Spectre API ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: spectre-api
+    env_file: .env.docker
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./src:/app/src:ro
+      - ./artifact:/app/artifact:ro
+      - ./migrations:/app/migrations:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./seeds:/app/seeds:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "[spectre] Running migrations..."
+        python -m alembic upgrade head 2>/dev/null || echo "[spectre] Migration skipped (may already be current)"
+        echo "[spectre] Running seeds..."
+        python -m seeds all 2>/dev/null || echo "[spectre] Seeds skipped"
+        echo "[spectre] Starting API server..."
+        uvicorn spectre.main:create_app --factory --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  # ─── Celery Worker ──────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: spectre-worker
+    env_file: .env.docker
+    volumes:
+      - ./src:/app/src:ro
+      - ./artifact:/app/artifact:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A spectre.workers.celery_app worker --loglevel=info --concurrency=2
+    restart: unless-stopped
+
+  # ─── Newman (API contract tests — run on demand) ────────────────────────────
+  newman:
+    image: postman/newman:6-alpine
+    container_name: spectre-newman
+    volumes:
+      - ./tests/postman:/etc/newman:ro
+      - ./reports:/etc/newman/reports
+    depends_on:
+      api:
+        condition: service_healthy
+    entrypoint: ["newman", "run", "/etc/newman/spectre-api-v1.postman_collection.json",
+      "-e", "/etc/newman/env-docker.json",
+      "--reporters", "cli",
+      "--timeout-request", "10000"]
+    profiles:
+      - test  # Only runs with: docker compose --profile test up newman
+
+volumes:
+  postgres_data:
+  redis_data:
