@@ -19,7 +19,7 @@ Spectre is a production-grade facial authentication API that provides:
 - **Face Authentication** — Verify identity against stored profiles
 - **Anti-Spoofing** — Real-time liveness detection via AntiSpoofNetV4
 - **Multi-Tenant** — Isolated per-application face databases with API key auth
-- **Webhook Delivery** — Async event notifications with HMAC-signed payloads
+- **Session Lookup** — Server-confirmed authentication details by session ID
 - **OAuth Integration** — Google OAuth2 login support
 - **TOTP 2FA** — Time-based one-time password for dashboard access
 
@@ -43,15 +43,15 @@ curl https://thewhitenigs-spectre-backend.hf.space/health
 ┌─────────────────────────────────────────────────────────┐
 │                    HF Spaces Container                    │
 │                                                          │
-│  ┌──────────┐  ┌───────┐  ┌──────────┐  ┌───────────┐  │
-│  │ FastAPI  │  │ Redis │  │ PostgreSQL│  │  Celery   │  │
-│  │ :7860    │  │ :6379 │  │  :5432   │  │  Worker   │  │
-│  └──────────┘  └───────┘  └──────────┘  └───────────┘  │
+│  ┌──────────┐  ┌───────┐  ┌──────────┐                  │
+│  │ FastAPI  │  │ Redis │  │PostgreSQL│                  │
+│  │ :7860    │  │ :6379 │  │ :5432    │                  │
+│  └──────────┘  └───────┘  └──────────┘                  │
 │                    supervisord                            │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Stack:** Python 3.11 · FastAPI · SQLAlchemy (async) · PostgreSQL 16 · Redis 7 · Celery · TensorFlow/Keras · InsightFace
+**Stack:** Python 3.11 · FastAPI · SQLAlchemy (async) · PostgreSQL 16 · Redis 7 · TensorFlow/Keras · InsightFace
 
 ## Local Development
 
@@ -64,7 +64,7 @@ cd spectre-backend
 make docker-dev
 ```
 
-This starts the entire stack — API, database, Redis, Celery worker, — in Docker. No Python, no Node, no local installs needed.
+This starts the entire stack — API, database, and Redis — in Docker. No Python, no Node, no local installs needed.
 
 - **API:** http://localhost:8000
 - **Swagger:** http://localhost:8000/docs
@@ -115,7 +115,7 @@ Two auth mechanisms:
 
 | Mechanism | Used For | Header |
 |---|---|---|
-| **JWT Bearer** | Dashboard (apps, keys, sessions, webhooks) | `Authorization: Bearer <token>` |
+| **JWT Bearer** | Dashboard (apps, keys, sessions) | `Authorization: Bearer <token>` |
 | **API Key** | Face operations (register, authenticate) | `X-API-Key: spk_...` |
 
 ### Pre-provisioned API Key (HF Spaces)
@@ -126,7 +126,7 @@ For immediate testing against the live deployment:
 X-API-Key: spk_d602c7bc949464b18c0fafc1c3c5d4f048bf2a524acad217
 ```
 
-## API Endpoints (31 total)
+## API Endpoints
 
 | Group | Endpoints | Auth |
 |---|---|---|
@@ -136,7 +136,6 @@ X-API-Key: spk_d602c7bc949464b18c0fafc1c3c5d4f048bf2a524acad217
 | API Keys | Generate, List, Revoke | Bearer |
 | Face Ops | Register, Authenticate, Replace, Delete, List, Purge, Benchmark | X-API-Key |
 | Sessions | List, Get detail | Bearer / X-API-Key |
-| Webhooks | Test, List deliveries, Retry | Bearer |
 | Telemetry | Client log ingestion | X-API-Key |
 | Admin | Config CRUD, FAS Models list, Stats, Automation | Bearer (admin) |
 
@@ -174,7 +173,6 @@ spectre/
 │   ├── domain/               # Entities, value objects, ports
 │   ├── infrastructure/       # DB, ML, cache, security, email
 │   ├── interface/            # Routers, schemas, middleware
-│   └── workers/              # Celery tasks
 ├── tests/                    # pytest + Newman collections
 ├── migrations/               # Alembic DB migrations
 ├── seeds/                    # Database seeders
