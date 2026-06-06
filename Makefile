@@ -208,13 +208,13 @@ wakeup-trigger: ## Manually trigger the keep-alive workflow and watch progress
 	gh workflow run "Keep HF Space Alive"; Start-Sleep -Seconds 2; gh run watch
 
 heartbeat-list: ## Show the latest 10 heartbeat records from Supabase
-	$$URL = "postgresql://postgres.rgnyrswxydfuqldeeqsg:ZikriSpectre2026%21%23@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"; psql $$URL -c "SELECT * FROM keepalive_ping ORDER BY pinged_at DESC LIMIT 10;"
+	$$URL = $$env:SUPABASE_DATABASE_URL; if (-not $$URL) { throw "Set SUPABASE_DATABASE_URL to the remote Supabase pooler URL." }; psql $$URL -c "SELECT * FROM keepalive_ping ORDER BY pinged_at DESC LIMIT 10;"
 
 db-query: ## Execute arbitrary SQL (usage: make db-query SQL="SELECT * FROM users")
-	@$$URL = "postgresql://postgres.rgnyrswxydfuqldeeqsg:ZikriSpectre2026%21%23@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"; psql $$URL -c "$(SQL)"
+	@$$URL = $$env:SUPABASE_DATABASE_URL; if (-not $$URL) { throw "Set SUPABASE_DATABASE_URL to the remote Supabase pooler URL." }; psql $$URL -c "$(SQL)"
 
 db-tables: ## List all tables in the remote database
-	@$$URL = "postgresql://postgres.rgnyrswxydfuqldeeqsg:ZikriSpectre2026%21%23@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"; psql $$URL -c "\dt"
+	@$$URL = $$env:SUPABASE_DATABASE_URL; if (-not $$URL) { throw "Set SUPABASE_DATABASE_URL to the remote Supabase pooler URL." }; psql $$URL -c "\dt"
 
 # ==============================================================================
 # Cleanup
