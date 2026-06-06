@@ -1,7 +1,7 @@
 SHELL := powershell.exe
 .SHELLFLAGS := -NoProfile -Command
 
-.PHONY: help install dev dev-win test-poc worker lint format typecheck check test test-unit test-integration test-cov test-newman test-newman-report test-all migrate migrate-new migrate-down seed seed-force seed-reset seed-list docker-up docker-down docker-build docker-logs docs docs-redoc openapi-export health env-check bootstrap reset ci clean clean-pyc
+.PHONY: help install dev dev-win test-poc lint format typecheck check test test-unit test-integration test-cov test-newman test-newman-report test-all migrate migrate-new migrate-down seed seed-force seed-reset seed-list docker-up docker-down docker-build docker-logs docs docs-redoc openapi-export health env-check bootstrap reset ci clean clean-pyc
 
 help: ## Show available commands
 	@Get-Content $(MAKEFILE_LIST) | Select-String '^[a-zA-Z_-]+:.*##' | ForEach-Object { $$_ -replace ':.*## ', '`t' } | Sort-Object
@@ -25,9 +25,6 @@ test-poc: ## Serve POC HTML UI client
 	@echo " Network Access     : http://$$(ipconfig | Select-String 'IPv4' | ForEach-Object {$$_.Line.Split(':')[-1].Trim()} | Select-Object -First 1):8001/ "
 	@echo "========================================================"
 	.venv\Scripts\python -m http.server 8001 -d poc
-
-worker: ## Run Celery worker
-	uv run celery -A spectre.workers.celery_app worker --loglevel=info --concurrency=2
 
 # ==============================================================================
 # Quality

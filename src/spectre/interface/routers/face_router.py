@@ -7,17 +7,12 @@ All use X-API-Key authentication (not JWT Bearer).
 from __future__ import annotations
 
 import base64
+import datetime
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from spectre.config import Settings
-from spectre.domain.exceptions.face_exceptions import (
-    FaceAlreadyRegisteredError,
-    FaceProfileNotFoundError,
-    ImageQualityInsufficientError,
-    LivenessCheckFailedError,
-)
 from spectre.interface.dependencies import (
     AuthenticatedApp,
     DBSession,
@@ -29,7 +24,6 @@ from spectre.interface.schemas.face_schema import (
     FaceBenchmarkRequest,
     FaceBenchmarkResponse,
     FaceRegisterRequest,
-    FaceReplaceRequest,
     FaceSessionResponse,
     SessionDetailResponse,
 )
@@ -128,7 +122,7 @@ async def register_face(
 ) -> dict:
     """Submit a face image for liveness detection and enrollment.
 
-    Returns a session ID that can be polled or received via webhook.
+    Returns a session ID that can be used for server-confirmed lookup.
     """
     from spectre.application.face_use_cases import RegisterFace
 
@@ -149,8 +143,6 @@ async def register_face(
     if diagnostics is not None:
         await _persist_diagnostics(db, session, diagnostics)
 
-    _dispatch_webhook(request, app, session)
-
     return {
         "session_id": str(session.id),
         "status": session.status.lower(),
@@ -169,7 +161,7 @@ async def authenticate_face(
 ) -> dict:
     """Submit a face image for liveness + identity verification.
 
-    Returns a session ID that can be polled or received via webhook.
+    Returns a session ID that can be used for server-confirmed lookup.
     """
     from spectre.application.face_use_cases import AuthenticateFace
 
@@ -190,8 +182,6 @@ async def authenticate_face(
 
     if diagnostics is not None:
         await _persist_diagnostics(db, session, diagnostics)
-
-    _dispatch_webhook(request, app, session)
 
     return {
         "session_id": str(session.id),
@@ -231,8 +221,6 @@ async def replace_face(
 
     if diagnostics is not None:
         await _persist_diagnostics(db, session, diagnostics)
-
-    _dispatch_webhook(request, app, session)
 
     return {
         "session_id": str(session.id),
@@ -323,7 +311,7 @@ async def get_session(
     db: DBSession,
     app: AuthenticatedApp,
 ) -> dict:
-    """Poll session status (fallback when webhook fails)."""
+    """Fetch server-confirmed session details by ID."""
     session_repo = SQLAuthSessionRepository(db)
     session = await session_repo.get_by_id(session_id)
 
@@ -412,19 +400,3 @@ async def benchmark_face(
         )
 
     return report
-
-
-def _dispatch_webhook(request: Request, app, session) -> None:
-    """Fire-and-forget webhook dispatch via Celery."""
-    if not app.has_webhook:
-        return
-
-    try:
-        from spectre.workers.tasks.webhook_task import deliver_webhook
-
-        deliver_webhook.delay(
-            str(session.id),
-            str(app.id),
-        )
-    except Exception:
-        pass  # Webhook dispatch failure is non-fatal

@@ -5,9 +5,8 @@
 #
 # Provides the COMPLETE development ecosystem:
 #   - PostgreSQL 16 (database)
-#   - Redis 7 (cache + broker)
+#   - Redis 7 (cache and rate limiting)
 #   - Spectre API (FastAPI, hot-reload via volume mount)
-#   - Celery Worker (async webhook delivery)
 #   - Newman (API contract tests — run on demand)
 #
 # Zero local dependencies required. Clone → docker compose up → working.
@@ -86,24 +85,6 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 3
-
-  # ─── Celery Worker ──────────────────────────────────────────────────────────
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.local
-    container_name: spectre-worker
-    env_file: .env.docker
-    volumes:
-      - ./src:/app/src:ro
-      - ./artifact:/app/artifact:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A spectre.workers.celery_app worker --loglevel=info --concurrency=2
-    restart: unless-stopped
 
   # ─── Newman (API contract tests — run on demand) ────────────────────────────
   newman:

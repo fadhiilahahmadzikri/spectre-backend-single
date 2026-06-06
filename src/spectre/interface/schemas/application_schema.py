@@ -3,36 +3,19 @@
 from __future__ import annotations
 
 import datetime
-from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, field_validator
-
-
-class WebhookUrlMixin(BaseModel):
-    webhook_url: str | None = None
-
-    @field_validator("webhook_url")
-    @classmethod
-    def normalize_webhook_url(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-
-        normalized = value.strip()
-        if not normalized:
-            return None
-
-        parsed = urlparse(normalized)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("webhook_url must be an absolute http or https URL.")
-
-        return normalized
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class CreateApplicationRequest(WebhookUrlMixin):
+class ApplicationRequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CreateApplicationRequest(ApplicationRequestModel):
     name: str = Field(..., min_length=1, max_length=255)
 
 
-class UpdateApplicationRequest(WebhookUrlMixin):
+class UpdateApplicationRequest(ApplicationRequestModel):
     name: str | None = Field(None, max_length=255)
     liveness_threshold: float | None = Field(None, ge=0.0, le=1.0)
     similarity_threshold: float | None = Field(None, ge=0.0, le=1.0)
@@ -42,9 +25,6 @@ class UpdateApplicationRequest(WebhookUrlMixin):
 class ApplicationResponse(BaseModel):
     id: str
     name: str
-    webhook_url: str | None
-    has_webhook: bool
-    webhook_secret: str | None = None
     liveness_threshold: float
     similarity_threshold: float
     allowed_ips: list[str]

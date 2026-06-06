@@ -1,7 +1,7 @@
 # ==============================================================================
 # Spectre — Dockerfile for Hugging Face Spaces (Docker SDK)
 #
-# Bundles: PostgreSQL 15 · Redis 7 · Celery Worker · FastAPI (uvicorn)
+# Bundles: PostgreSQL 15 · Redis 7 · FastAPI (uvicorn)
 # All processes managed by supervisord inside a single container.
 # Original local Dockerfile preserved as Dockerfile.local.
 # ==============================================================================

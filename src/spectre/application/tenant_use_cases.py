@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-import secrets
 import uuid
 
 from spectre.config import Settings
@@ -11,7 +10,6 @@ from spectre.core.logger import get_logger
 from spectre.domain.entities.tenant_application import TenantApplication
 from spectre.domain.exceptions.tenant_exceptions import ApplicationNotFoundError, ForbiddenError
 from spectre.domain.ports.repositories import AbstractTenantApplicationRepository
-from spectre.infrastructure.security.aes_encryption import AESEncryption
 
 logger = get_logger(__name__)
 
@@ -22,33 +20,21 @@ class CreateApplication:
     def __init__(
         self,
         app_repo: AbstractTenantApplicationRepository,
-        encryption: AESEncryption,
         settings: Settings,
     ) -> None:
         self._app_repo = app_repo
-        self._enc = encryption
         self._settings = settings
 
     async def execute(
         self,
         owner_id: uuid.UUID,
         name: str,
-        webhook_url: str | None = None,
     ) -> TenantApplication:
-        """Create a new application with optional webhook config."""
-        webhook_secret = None
-        webhook_secret_encrypted = None
-
-        if webhook_url:
-            webhook_secret = secrets.token_urlsafe(32)
-            webhook_secret_encrypted = self._enc.encrypt_string(webhook_secret)
-
+        """Create a new tenant application."""
         app = TenantApplication(
             id=uuid.uuid4(),
             owner_id=owner_id,
             name=name,
-            webhook_url=webhook_url,
-            webhook_secret_encrypted=webhook_secret_encrypted,
             liveness_threshold=self._settings.liveness_threshold,
             similarity_threshold=self._settings.similarity_threshold,
         )
@@ -92,10 +78,8 @@ class UpdateApplication:
     def __init__(
         self,
         app_repo: AbstractTenantApplicationRepository,
-        encryption: AESEncryption,
     ) -> None:
         self._app_repo = app_repo
-        self._enc = encryption
 
     async def execute(
         self,
@@ -103,7 +87,6 @@ class UpdateApplication:
         owner_id: uuid.UUID,
         *,
         name: str | None = None,
-        webhook_url: str | None = None,
         liveness_threshold: float | None = None,
         similarity_threshold: float | None = None,
         allowed_ips: list[str] | None = None,
@@ -116,10 +99,6 @@ class UpdateApplication:
 
         if name is not None:
             app.name = name
-        if webhook_url is not None:
-            app.webhook_url = webhook_url
-            webhook_secret = secrets.token_urlsafe(32)
-            app.webhook_secret_encrypted = self._enc.encrypt_string(webhook_secret)
         if liveness_threshold is not None:
             app.liveness_threshold = liveness_threshold
         if similarity_threshold is not None:

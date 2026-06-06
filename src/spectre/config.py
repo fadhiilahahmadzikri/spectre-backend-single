@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,10 +48,6 @@ class Settings(BaseSettings):
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
     redis_key_prefix: str = "spectre:"
-
-    # --- Celery ---
-    celery_broker_url: str = "redis://localhost:6379/1"
-    celery_result_backend: str = "redis://localhost:6379/2"
 
     # --- JWT ---
     jwt_secret_key: str = "set-via-env"
@@ -97,11 +93,6 @@ class Settings(BaseSettings):
     # --- Rate Limiting ---
     rate_limit_default: str = "100/minute"
     rate_limit_face_operations: str = "30/minute"
-
-    # --- Webhook ---
-    webhook_timeout_seconds: int = 10
-    webhook_max_retries: int = 4
-    webhook_retry_backoff_base: int = 30
 
     # --- CORS ---
     cors_origins: list[str] | str = "http://localhost:3000,http://localhost:5173"

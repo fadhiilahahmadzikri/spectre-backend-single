@@ -1,4 +1,4 @@
-"""AES-256-GCM encryption for sensitive data (embeddings, TOTP secrets, webhook secrets)."""
+"""AES-256-GCM encryption for sensitive data."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ class AESEncryption:
     Used for:
     - Face embedding vectors (bytes → encrypted bytes)
     - TOTP secrets
-    - Webhook secrets
     """
 
     _NONCE_SIZE = 12  # 96 bits — recommended for AES-GCM

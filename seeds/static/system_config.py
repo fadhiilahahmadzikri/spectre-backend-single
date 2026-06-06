@@ -13,10 +13,6 @@ DEFAULTS = [
     ("benchmark_enabled", "false", "anti_spoofing", "bool", "Enable multi-model benchmark mode (side-by-side comparison)"),
     ("benchmark_models", "[\"antispoofnet_v4\",\"ilhamcaesar_resnet50\"]", "anti_spoofing", "string", "JSON array of FAS model_ids participating in benchmark"),
     ("detail_mode_default", "false", "anti_spoofing", "bool", "Default state of detail_mode toggle in the scan config drawer"),
-    # Webhook & Delivery
-    ("webhook_timeout_seconds", "10", "webhook", "int", "HTTP timeout for webhook delivery requests"),
-    ("webhook_max_retries", "4", "webhook", "int", "Maximum retry attempts for failed webhooks"),
-    ("webhook_retry_backoff_base", "30", "webhook", "int", "Base backoff seconds between webhook retries"),
     # Rate Limiting
     ("rate_limit_default", "100/minute", "rate_limiting", "string", "Default API rate limit"),
     ("rate_limit_face_operations", "30/minute", "rate_limiting", "string", "Rate limit for face operation endpoints"),

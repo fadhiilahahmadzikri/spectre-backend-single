@@ -24,7 +24,7 @@ class AuthSession:
     """Tracks a single face operation (registration or authentication).
 
     Created when the API receives a face request. Updated with results
-    after inference completes. Used for session polling and webhook payload.
+    after inference completes. Used for session lookup.
     """
 
     id: UUID

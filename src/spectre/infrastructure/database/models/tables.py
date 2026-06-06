@@ -139,8 +139,6 @@ class TenantApplicationModel(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    webhook_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    webhook_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     liveness_threshold: Mapped[float] = mapped_column(
         Float, nullable=False, server_default=text("0.5")
     )
@@ -298,65 +296,11 @@ class AuthSessionModel(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    webhook_deliveries: Mapped[list[WebhookDeliveryModel]] = relationship(
-        back_populates="session", lazy="selectin"
-    )
-
     __table_args__ = (
         Index("ix_auth_sessions_app_id_created_at", "app_id", "created_at"),
         Index("ix_auth_sessions_app_id_status", "app_id", "status"),
         Index("ix_auth_sessions_app_idempotency", "app_id", "idempotency_key"),
         Index("ix_auth_sessions_lifecycle", "lifecycle_state", "expires_at"),
-    )
-
-
-# =============================================================================
-# Webhook Deliveries
-# =============================================================================
-
-
-class WebhookDeliveryModel(Base):
-    __tablename__ = "webhook_deliveries"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=_uuid_gen
-    )
-    session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("auth_sessions.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    app_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("tenant_applications.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, server_default="PENDING"
-    )
-    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    max_attempts: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
-    last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    next_retry_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    delivered_at: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
-    )
-
-    session: Mapped[AuthSessionModel] = relationship(back_populates="webhook_deliveries")
-
-    __table_args__ = (
-        Index("ix_webhook_deliveries_app_id_created_at", "app_id", "created_at"),
-        Index("ix_webhook_deliveries_status_next_retry", "status", "next_retry_at"),
     )
 
 

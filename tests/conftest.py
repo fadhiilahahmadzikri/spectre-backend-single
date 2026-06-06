@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import numpy as np
 import pytest
@@ -185,8 +185,6 @@ def test_app_entity() -> TenantApplication:
         status="active",
         liveness_threshold=0.85,
         similarity_threshold=0.75,
-        webhook_url="https://example.com/webhook",
-        webhook_secret_encrypted="encrypted_secret",
         allowed_ips=None,
         created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),

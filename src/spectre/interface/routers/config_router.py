@@ -11,6 +11,7 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from spectre.config import Settings
+from spectre.domain.entities.user import User
 from spectre.interface.dependencies import DBSession, get_current_user, get_settings
 from spectre.interface.schemas.config_schema import (
     ConfigItem,
@@ -33,9 +34,6 @@ _SETTINGS_MAP: dict[str, str] = {
     "benchmark_enabled": "benchmark_enabled",
     "benchmark_models": "benchmark_models",
     "detail_mode_default": "detail_mode_default",
-    "webhook_timeout_seconds": "webhook_timeout_seconds",
-    "webhook_max_retries": "webhook_max_retries",
-    "webhook_retry_backoff_base": "webhook_retry_backoff_base",
     "rate_limit_default": "rate_limit_default",
     "rate_limit_face_operations": "rate_limit_face_operations",
     "jwt_access_token_expire_minutes": "jwt_access_token_expire_minutes",

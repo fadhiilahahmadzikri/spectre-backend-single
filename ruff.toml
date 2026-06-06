@@ -1,9 +1,8 @@
-[tool.ruff]
 target-version = "py311"
 line-length = 100
 src = ["src", "tests"]
 
-[tool.ruff.lint]
+[lint]
 select = [
     "E",      # pycodestyle errors
     "W",      # pycodestyle warnings
@@ -22,12 +21,12 @@ ignore = [
     "RUF012", # mutable class variables
 ]
 
-[tool.ruff.lint.isort]
+[lint.isort]
 known-first-party = ["spectre"]
 force-single-line = false
 combine-as-imports = true
 
-[tool.ruff.format]
+[format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false

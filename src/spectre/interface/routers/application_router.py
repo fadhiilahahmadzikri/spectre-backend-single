@@ -7,22 +7,17 @@ All require JWT Bearer authentication.
 from __future__ import annotations
 
 import datetime
-import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException
 
 from spectre.config import Settings
 from spectre.domain.entities.api_key import ApiKey
 from spectre.domain.entities.tenant_application import TenantApplication
-from spectre.domain.exceptions.tenant_exceptions import (
-    ApplicationNotFoundError,
-    DuplicateApplicationNameError,
-)
+from spectre.domain.exceptions.tenant_exceptions import ApplicationNotFoundError
 from spectre.interface.dependencies import CurrentUser, DBSession, get_settings
 from spectre.interface.schemas.application_schema import (
     ApiKeyCreatedResponse,
-    ApiKeyResponse,
     ApplicationResponse,
     CreateApplicationRequest,
     UpdateApplicationRequest,
@@ -31,7 +26,6 @@ from spectre.infrastructure.repositories.sql_repositories import (
     SQLApiKeyRepository,
     SQLTenantApplicationRepository,
 )
-from spectre.infrastructure.security.aes_encryption import AESEncryption
 from spectre.infrastructure.security.api_key_generator import ApiKeyGenerator
 
 router = APIRouter(prefix="/api/v1/applications", tags=["Applications"])
@@ -50,17 +44,10 @@ def _app_to_response(app: TenantApplication) -> dict:
         "status": app.status,
         "liveness_threshold": app.liveness_threshold,
         "similarity_threshold": getattr(app, "similarity_threshold", 0.75),
-        "webhook_url": app.webhook_url,
-        "has_webhook": app.has_webhook,
         "allowed_ips": app.allowed_ips or [],
         "created_at": app.created_at.isoformat() if app.created_at else None,
         "updated_at": app.updated_at.isoformat() if app.updated_at else None,
     }
-
-
-def _new_webhook_secret(encryption: AESEncryption) -> tuple[str, str]:
-    webhook_secret = secrets.token_urlsafe(32)
-    return webhook_secret, encryption.encrypt_string(webhook_secret)
 
 
 @router.post("", status_code=201, response_model=ApplicationResponse)
@@ -72,20 +59,12 @@ async def create_application(
 ) -> dict:
     """Create a new tenant application."""
     app_repo = SQLTenantApplicationRepository(db)
-    encryption = AESEncryption(settings)
-
-    webhook_secret_raw = None
-    webhook_secret_encrypted = None
-    if body.webhook_url:
-        webhook_secret_raw, webhook_secret_encrypted = _new_webhook_secret(encryption)
 
     new_app = TenantApplication(
         id=uuid.uuid4(),
         owner_id=current_user.id,
         name=body.name,
         status="active",
-        webhook_url=body.webhook_url,
-        webhook_secret_encrypted=webhook_secret_encrypted,
         liveness_threshold=settings.liveness_threshold,
         similarity_threshold=getattr(settings, "similarity_threshold", 0.75),
         created_at=datetime.datetime.now(datetime.timezone.utc),
@@ -93,10 +72,7 @@ async def create_application(
     )
     new_app = await app_repo.create(new_app)
 
-    response = _app_to_response(new_app)
-    if webhook_secret_raw:
-        response["webhook_secret"] = webhook_secret_raw
-    return response
+    return _app_to_response(new_app)
 
 
 @router.get("", response_model=dict) # Pagination wrapper
@@ -140,11 +116,9 @@ async def update_application(
     body: UpdateApplicationRequest,
     db: DBSession,
     current_user: CurrentUser,
-    settings: Settings = Depends(get_settings),
 ) -> dict:
     """Update application settings."""
     app_repo = SQLTenantApplicationRepository(db)
-    encryption = AESEncryption(settings)
 
     app = await app_repo.get_by_id(app_id)
     if not app or app.owner_id != current_user.id:
@@ -152,16 +126,6 @@ async def update_application(
 
     if body.name is not None:
         app.name = body.name
-
-    webhook_secret_raw = None
-    if "webhook_url" in body.model_fields_set:
-        app.webhook_url = body.webhook_url
-        if body.webhook_url:
-            webhook_secret_raw, app.webhook_secret_encrypted = _new_webhook_secret(
-                encryption
-            )
-        else:
-            app.webhook_secret_encrypted = None
 
     if body.liveness_threshold is not None:
         app.liveness_threshold = body.liveness_threshold
@@ -172,10 +136,7 @@ async def update_application(
 
     app.updated_at = datetime.datetime.now(datetime.timezone.utc)
     await app_repo.update(app)
-    response = _app_to_response(app)
-    if webhook_secret_raw:
-        response["webhook_secret"] = webhook_secret_raw
-    return response
+    return _app_to_response(app)
 
 
 @router.delete("/{app_id}", status_code=204)

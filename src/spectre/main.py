@@ -175,7 +175,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "npm install @thewhitenigs/spectre-snap\n"
             "```\n"
             "The SDK handles camera access, face detection, liveness checks, and API "
-            "communication. Results are delivered via real-time callbacks and async webhooks."
+            "communication. Results are delivered via real-time callbacks; clients can "
+            "fetch server-confirmed details through the session lookup endpoint."
         ),
         version="1.1.0",
         docs_url="/docs" if settings.debug else None,
@@ -187,7 +188,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {"name": "Applications", "description": "Tenant application and API key management"},
             {"name": "Platform Admin", "description": "Administrative endpoints for platform oversight, user management, and global metrics (requires `admin` role)"},
             {"name": "Face Operations", "description": "Biometric face registration, authentication, and liveness detection. Used by the Snap SDK and direct API consumers."},
-            {"name": "Webhooks", "description": "Webhook delivery status and event payloads. Events: `face.registered`, `face.authenticated`, `face.no_match`, `face.spoof_rejected`, `face.failed`"},
             {"name": "Configuration", "description": "Admin system configuration management with hot-reload"},
             {"name": "SDK Integration", "description": "Endpoints consumed by `@thewhitenigs/spectre-snap` — session polling, mode detection, and ML status. See [NPM package](https://www.npmjs.com/package/@thewhitenigs/spectre-snap)."},
             {"name": "Telemetry", "description": "Frontend logging and error ingestion"},
@@ -195,7 +195,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     # --- Security Schemes (Swagger UI) ---
-    from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
     from fastapi.openapi.utils import get_openapi
 
     def custom_openapi():
@@ -263,7 +262,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from spectre.interface.routers.auth_router import router as auth_router
     from spectre.interface.routers.application_router import router as app_router
     from spectre.interface.routers.face_router import router as face_router
-    from spectre.interface.routers.webhook_router import router as webhook_router
     from spectre.interface.routers.session_router import router as session_router
     from spectre.interface.routers.client_log_router import router as client_log_router
     from spectre.interface.routers.config_router import router as config_router
@@ -273,7 +271,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(app_router)
     app.include_router(face_router)
-    app.include_router(webhook_router)
     app.include_router(session_router)
     app.include_router(client_log_router)
     app.include_router(config_router)

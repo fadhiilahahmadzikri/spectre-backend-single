@@ -6,7 +6,6 @@ layers depend only on these abstractions.
 
 from __future__ import annotations
 
-import datetime
 from abc import ABC, abstractmethod
 from typing import Any
 from uuid import UUID
@@ -17,7 +16,6 @@ from spectre.domain.entities.face_profile import FaceProfile
 from spectre.domain.entities.refresh_token import RefreshToken
 from spectre.domain.entities.tenant_application import TenantApplication
 from spectre.domain.entities.user import User, UserIdentity
-from spectre.domain.entities.webhook_delivery import WebhookDelivery
 
 
 class AbstractUserRepository(ABC):
@@ -146,29 +144,6 @@ class AbstractAuthSessionRepository(ABC):
         limit: int = 50,
         status: str | None = None,
     ) -> list[AuthSession]: ...
-
-
-class AbstractWebhookDeliveryRepository(ABC):
-    """Data access contract for WebhookDelivery entities."""
-
-    @abstractmethod
-    async def create(self, delivery: WebhookDelivery) -> WebhookDelivery: ...
-
-    @abstractmethod
-    async def get_by_id(self, delivery_id: UUID) -> WebhookDelivery | None: ...
-
-    @abstractmethod
-    async def update(self, delivery: WebhookDelivery) -> WebhookDelivery: ...
-
-    @abstractmethod
-    async def list_by_app(
-        self, app_id: UUID, *, offset: int = 0, limit: int = 50
-    ) -> list[WebhookDelivery]: ...
-
-    @abstractmethod
-    async def get_pending_retries(
-        self, before: datetime.datetime
-    ) -> list[WebhookDelivery]: ...
 
 
 class AbstractRefreshTokenRepository(ABC):

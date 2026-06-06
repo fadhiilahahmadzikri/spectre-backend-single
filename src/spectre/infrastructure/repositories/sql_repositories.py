@@ -19,7 +19,6 @@ from spectre.domain.entities.face_profile import FaceProfile
 from spectre.domain.entities.refresh_token import RefreshToken
 from spectre.domain.entities.tenant_application import TenantApplication
 from spectre.domain.entities.user import User, UserIdentity
-from spectre.domain.entities.webhook_delivery import WebhookDelivery
 from spectre.domain.ports.repositories import (
     AbstractApiKeyRepository,
     AbstractAuditLogRepository,
@@ -29,7 +28,6 @@ from spectre.domain.ports.repositories import (
     AbstractRefreshTokenRepository,
     AbstractTenantApplicationRepository,
     AbstractUserRepository,
-    AbstractWebhookDeliveryRepository,
 )
 from spectre.infrastructure.database.models.tables import (
     ApiKeyModel,
@@ -40,7 +38,6 @@ from spectre.infrastructure.database.models.tables import (
     TenantApplicationModel,
     UserModel,
     UserIdentityModel,
-    WebhookDeliveryModel,
     SystemConfigModel,
 )
 
@@ -83,8 +80,6 @@ def _app_to_entity(m: TenantApplicationModel) -> TenantApplication:
         id=m.id,
         owner_id=m.owner_id,
         name=m.name,
-        webhook_url=m.webhook_url,
-        webhook_secret_encrypted=m.webhook_secret_encrypted,
         liveness_threshold=m.liveness_threshold,
         similarity_threshold=m.similarity_threshold,
         allowed_ips=m.allowed_ips or [],
@@ -136,24 +131,6 @@ def _session_to_entity(m: AuthSessionModel) -> AuthSession:
         client_metadata=m.client_metadata,
         created_at=m.created_at,
         completed_at=m.completed_at,
-    )
-
-
-def _delivery_to_entity(m: WebhookDeliveryModel) -> WebhookDelivery:
-    return WebhookDelivery(
-        id=m.id,
-        session_id=m.session_id,
-        app_id=m.app_id,
-        status=m.status,
-        attempt_count=m.attempt_count,
-        max_attempts=m.max_attempts,
-        last_status_code=m.last_status_code,
-        last_error=m.last_error,
-        payload_hash=m.payload_hash,
-        next_retry_at=m.next_retry_at,
-        delivered_at=m.delivered_at,
-        created_at=m.created_at,
-        updated_at=m.updated_at,
     )
 
 
@@ -272,8 +249,6 @@ class SQLTenantApplicationRepository(AbstractTenantApplicationRepository):
             id=app.id,
             owner_id=app.owner_id,
             name=app.name,
-            webhook_url=app.webhook_url,
-            webhook_secret_encrypted=app.webhook_secret_encrypted,
             liveness_threshold=app.liveness_threshold,
             similarity_threshold=app.similarity_threshold,
             allowed_ips=app.allowed_ips,
@@ -311,8 +286,6 @@ class SQLTenantApplicationRepository(AbstractTenantApplicationRepository):
             .where(TenantApplicationModel.id == app.id)
             .values(
                 name=app.name,
-                webhook_url=app.webhook_url,
-                webhook_secret_encrypted=app.webhook_secret_encrypted,
                 liveness_threshold=app.liveness_threshold,
                 similarity_threshold=app.similarity_threshold,
                 allowed_ips=app.allowed_ips,
@@ -538,74 +511,6 @@ class SQLAuthSessionRepository(AbstractAuthSessionRepository):
         )
         result = await self._session.execute(stmt)
         return [_session_to_entity(m) for m in result.scalars().all()]
-
-
-class SQLWebhookDeliveryRepository(AbstractWebhookDeliveryRepository):
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def create(self, delivery: WebhookDelivery) -> WebhookDelivery:
-        model = WebhookDeliveryModel(
-            id=delivery.id,
-            session_id=delivery.session_id,
-            app_id=delivery.app_id,
-            status=delivery.status,
-            attempt_count=delivery.attempt_count,
-            max_attempts=delivery.max_attempts,
-            last_status_code=delivery.last_status_code,
-            last_error=delivery.last_error,
-            payload_hash=delivery.payload_hash,
-            next_retry_at=delivery.next_retry_at,
-            delivered_at=delivery.delivered_at,
-        )
-        self._session.add(model)
-        await self._session.flush()
-        return _delivery_to_entity(model)
-
-    async def get_by_id(self, delivery_id: UUID) -> WebhookDelivery | None:
-        result = await self._session.get(WebhookDeliveryModel, delivery_id)
-        return _delivery_to_entity(result) if result else None
-
-    async def update(self, delivery: WebhookDelivery) -> WebhookDelivery:
-        stmt = (
-            update(WebhookDeliveryModel)
-            .where(WebhookDeliveryModel.id == delivery.id)
-            .values(
-                status=delivery.status,
-                attempt_count=delivery.attempt_count,
-                last_status_code=delivery.last_status_code,
-                last_error=delivery.last_error,
-                next_retry_at=delivery.next_retry_at,
-                delivered_at=delivery.delivered_at,
-            )
-        )
-        await self._session.execute(stmt)
-        return delivery
-
-    async def list_by_app(
-        self, app_id: UUID, *, offset: int = 0, limit: int = 50
-    ) -> list[WebhookDelivery]:
-        stmt = (
-            select(WebhookDeliveryModel)
-            .where(WebhookDeliveryModel.app_id == app_id)
-            .offset(offset)
-            .limit(limit)
-            .order_by(WebhookDeliveryModel.created_at.desc())
-        )
-        result = await self._session.execute(stmt)
-        return [_delivery_to_entity(m) for m in result.scalars().all()]
-
-    async def get_pending_retries(
-        self, before: datetime.datetime
-    ) -> list[WebhookDelivery]:
-        stmt = select(WebhookDeliveryModel).where(
-            and_(
-                WebhookDeliveryModel.status == "FAILED",
-                WebhookDeliveryModel.next_retry_at <= before,
-            )
-        )
-        result = await self._session.execute(stmt)
-        return [_delivery_to_entity(m) for m in result.scalars().all()]
 
 
 class SQLRefreshTokenRepository(AbstractRefreshTokenRepository):

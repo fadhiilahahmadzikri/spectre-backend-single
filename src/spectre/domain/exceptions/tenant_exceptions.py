@@ -80,14 +80,6 @@ class SessionExpiredError(SpectreError):
         super().__init__(message)
 
 
-class WebhookDeliveryNotFoundError(SpectreError):
-    error_code = "WEBHOOK_DELIVERY_NOT_FOUND"
-    http_status = 404
-
-    def __init__(self, message: str = "Webhook delivery not found.") -> None:
-        super().__init__(message)
-
-
 class ForbiddenError(SpectreError):
     error_code = "FORBIDDEN"
     http_status = 403

@@ -10,11 +10,10 @@ import datetime
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, update, delete
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import delete, func, select
 
-from spectre.interface.dependencies import CurrentUser, DBSession, get_settings
-from spectre.config import Settings
+from spectre.interface.dependencies import CurrentUser, DBSession
 from spectre.infrastructure.database.models.tables import (
     ApiKeyModel,
     AuthSessionModel,
@@ -24,8 +23,6 @@ from spectre.infrastructure.database.models.tables import (
 )
 from spectre.infrastructure.repositories.sql_repositories import (
     SQLApiKeyRepository,
-    SQLAuthSessionRepository,
-    SQLFaceProfileRepository,
     SQLTenantApplicationRepository,
     SQLUserRepository,
 )
@@ -210,7 +207,6 @@ async def list_all_applications(
                 "owner_id": str(a.owner_id),
                 "name": a.name,
                 "status": a.status,
-                "webhook_url": a.webhook_url,
                 "liveness_threshold": a.liveness_threshold,
                 "similarity_threshold": a.similarity_threshold,
                 "allowed_ips": a.allowed_ips or [],
@@ -240,7 +236,6 @@ async def get_application(
         "owner_id": str(app.owner_id),
         "name": app.name,
         "status": app.status,
-        "webhook_url": app.webhook_url,
         "liveness_threshold": app.liveness_threshold,
         "similarity_threshold": getattr(app, "similarity_threshold", 0.75),
         "allowed_ips": app.allowed_ips or [],
@@ -267,8 +262,6 @@ async def update_application(
         app.name = body["name"]
     if "status" in body:
         app.status = body["status"]
-    if "webhook_url" in body:
-        app.webhook_url = body["webhook_url"]
     if "liveness_threshold" in body:
         app.liveness_threshold = body["liveness_threshold"]
     if "similarity_threshold" in body:
@@ -298,7 +291,7 @@ async def delete_application(
     app = await repo.get_by_id(app_id)
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
-    # Cascade: delete face profiles, sessions, api keys, webhook deliveries
+    # Cascade: delete child records before deleting the application.
     await db.execute(delete(FaceProfileModel).where(FaceProfileModel.app_id == app_id))
     await db.execute(delete(AuthSessionModel).where(AuthSessionModel.app_id == app_id))
     await db.execute(delete(ApiKeyModel).where(ApiKeyModel.app_id == app_id))
