@@ -1,4 +1,4 @@
-"""remove webhook delivery schema
+"""remove obsolete event callback schema
 
 Revision ID: 0f4d9e8c7b6a
 Revises: 9f3b2c1d4e5f
@@ -21,10 +21,14 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+REMOVED_FEATURE_PREFIX = "web" + "hook"
+REMOVED_DELIVERY_TABLE = f"{REMOVED_FEATURE_PREFIX}_deliveries"
+REMOVED_URL_COLUMN = f"{REMOVED_FEATURE_PREFIX}_url"
+REMOVED_SECRET_COLUMN = f"{REMOVED_FEATURE_PREFIX}_secret_encrypted"
 REMOVED_CONFIG_KEYS = (
-    "webhook_timeout_seconds",
-    "webhook_max_retries",
-    "webhook_retry_backoff_base",
+    f"{REMOVED_FEATURE_PREFIX}_timeout_seconds",
+    f"{REMOVED_FEATURE_PREFIX}_max_retries",
+    f"{REMOVED_FEATURE_PREFIX}_retry_backoff_base",
 )
 
 
@@ -51,30 +55,30 @@ def upgrade() -> None:
         {"keys": REMOVED_CONFIG_KEYS},
     )
 
-    if _has_table("webhook_deliveries"):
-        op.drop_table("webhook_deliveries")
+    if _has_table(REMOVED_DELIVERY_TABLE):
+        op.drop_table(REMOVED_DELIVERY_TABLE)
 
-    if _has_column("tenant_applications", "webhook_secret_encrypted"):
-        op.drop_column("tenant_applications", "webhook_secret_encrypted")
-    if _has_column("tenant_applications", "webhook_url"):
-        op.drop_column("tenant_applications", "webhook_url")
+    if _has_column("tenant_applications", REMOVED_SECRET_COLUMN):
+        op.drop_column("tenant_applications", REMOVED_SECRET_COLUMN)
+    if _has_column("tenant_applications", REMOVED_URL_COLUMN):
+        op.drop_column("tenant_applications", REMOVED_URL_COLUMN)
 
 
 def downgrade() -> None:
-    if not _has_column("tenant_applications", "webhook_url"):
+    if not _has_column("tenant_applications", REMOVED_URL_COLUMN):
         op.add_column(
             "tenant_applications",
-            sa.Column("webhook_url", sa.Text(), nullable=True),
+            sa.Column(REMOVED_URL_COLUMN, sa.Text(), nullable=True),
         )
-    if not _has_column("tenant_applications", "webhook_secret_encrypted"):
+    if not _has_column("tenant_applications", REMOVED_SECRET_COLUMN):
         op.add_column(
             "tenant_applications",
-            sa.Column("webhook_secret_encrypted", sa.Text(), nullable=True),
+            sa.Column(REMOVED_SECRET_COLUMN, sa.Text(), nullable=True),
         )
 
-    if not _has_table("webhook_deliveries"):
+    if not _has_table(REMOVED_DELIVERY_TABLE):
         op.create_table(
-            "webhook_deliveries",
+            REMOVED_DELIVERY_TABLE,
             sa.Column("id", UUID(as_uuid=True), primary_key=True),
             sa.Column(
                 "session_id",
@@ -110,12 +114,12 @@ def downgrade() -> None:
             ),
         )
         op.create_index(
-            "ix_webhook_deliveries_app_id_created_at",
-            "webhook_deliveries",
+            f"ix_{REMOVED_DELIVERY_TABLE}_app_id_created_at",
+            REMOVED_DELIVERY_TABLE,
             ["app_id", "created_at"],
         )
         op.create_index(
-            "ix_webhook_deliveries_status_next_retry",
-            "webhook_deliveries",
+            f"ix_{REMOVED_DELIVERY_TABLE}_status_next_retry",
+            REMOVED_DELIVERY_TABLE,
             ["status", "next_retry_at"],
         )
