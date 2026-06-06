@@ -146,6 +146,7 @@ class TenantApplicationModel(Base):
         Float, nullable=False, server_default=text("0.40")
     )
     allowed_ips: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    allowed_origins: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, server_default="active"
     )
@@ -190,6 +191,9 @@ class ApiKeyModel(Base):
     environment: Mapped[str] = mapped_column(
         String(15), nullable=False, server_default="production"
     )
+    key_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="legacy"
+    )
     last_used_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -209,6 +213,7 @@ class ApiKeyModel(Base):
         Index("ix_api_keys_key_prefix", "key_prefix"),
         Index("ix_api_keys_app_id_status", "app_id", "status"),
         Index("ix_api_keys_environment", "environment", "status"),
+        Index("ix_api_keys_app_key_type_status", "app_id", "key_type", "status"),
     )
 
 
@@ -282,6 +287,19 @@ class AuthSessionModel(Base):
     )
     idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     sdk_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    client_secret_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    return_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancel_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locked_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    exchange_code_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exchange_code_expires_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    exchanged_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # --- Existing fields ---
     external_user_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     liveness_class: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -301,6 +319,94 @@ class AuthSessionModel(Base):
         Index("ix_auth_sessions_app_id_status", "app_id", "status"),
         Index("ix_auth_sessions_app_idempotency", "app_id", "idempotency_key"),
         Index("ix_auth_sessions_lifecycle", "lifecycle_state", "expires_at"),
+        Index("ix_auth_sessions_exchange_code", "exchange_code_hash"),
+    )
+
+
+class WebhookEndpointModel(Base):
+    __tablename__ = "webhook_endpoints"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_uuid_gen
+    )
+    app_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenant_applications.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    secret_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    event_types: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="active"
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    disabled_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_webhook_endpoints_app_status", "app_id", "status"),
+    )
+
+
+class SpectreEventModel(Base):
+    __tablename__ = "spectre_events"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    app_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenant_applications.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_spectre_events_app_created_at", "app_id", "created_at"),
+        Index("ix_spectre_events_type", "event_type"),
+    )
+
+
+class WebhookDeliveryModel(Base):
+    __tablename__ = "webhook_deliveries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_uuid_gen
+    )
+    event_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("spectre_events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endpoint_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("webhook_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="pending"
+    )
+    signature_header: Mapped[str] = mapped_column(Text, nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    last_attempt_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    response_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("event_id", "endpoint_id", name="uq_webhook_delivery_event_endpoint"),
+        Index("ix_webhook_deliveries_event", "event_id"),
+        Index("ix_webhook_deliveries_endpoint_status", "endpoint_id", "status"),
     )
 
 

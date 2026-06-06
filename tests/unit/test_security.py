@@ -49,3 +49,16 @@ class TestApiKeyGenerator:
         gen = ApiKeyGenerator(settings)
         pair = gen.generate()
         assert not gen.verify("spk_wrong_key", pair.key_hash)
+
+    def test_generate_secret_key_format(self, settings):
+        gen = ApiKeyGenerator(settings)
+        pair = gen.generate_for_type("secret")
+        assert pair.full_key.startswith("ssk_")
+        assert gen.is_secret_key(pair.full_key)
+        assert gen.verify(pair.full_key, pair.key_hash)
+
+    def test_generate_publishable_key_format(self, settings):
+        gen = ApiKeyGenerator(settings)
+        pair = gen.generate_for_type("publishable")
+        assert pair.full_key.startswith("spub_")
+        assert gen.is_publishable_key(pair.full_key)

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     log_level: str = "DEBUG"
     log_retention: str = "30 days"
     log_slow_query_ms: int = 500
+    log_enqueue: bool = True
     secret_key: str = "set-via-env"
     allowed_hosts: list[str] | str = "localhost,127.0.0.1"
 
@@ -101,6 +102,16 @@ class Settings(BaseSettings):
     # --- Face Matching ---
     similarity_threshold: float = 0.40
     liveness_threshold: float = 0.5
+
+    # --- Hosted Auth ---
+    hosted_auth_base_url: str = "http://localhost:5173"
+    hosted_session_ttl_minutes: int = 15
+    hosted_exchange_code_ttl_seconds: int = 120
+    hosted_jwt_private_key_pem: str | None = None
+    hosted_jwt_key_id: str = "spectre-hosted-1"
+
+    # --- Webhooks ---
+    webhook_replay_tolerance_seconds: int = 300
 
     @field_validator("allowed_hosts", "cors_origins", mode="before")
     @classmethod

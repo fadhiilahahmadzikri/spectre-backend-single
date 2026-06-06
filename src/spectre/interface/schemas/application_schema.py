@@ -20,6 +20,7 @@ class UpdateApplicationRequest(ApplicationRequestModel):
     liveness_threshold: float | None = Field(None, ge=0.0, le=1.0)
     similarity_threshold: float | None = Field(None, ge=0.0, le=1.0)
     allowed_ips: list[str] | None = None
+    allowed_origins: list[str] | None = None
 
 
 class ApplicationResponse(BaseModel):
@@ -28,6 +29,7 @@ class ApplicationResponse(BaseModel):
     liveness_threshold: float
     similarity_threshold: float
     allowed_ips: list[str]
+    allowed_origins: list[str]
     status: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -35,12 +37,14 @@ class ApplicationResponse(BaseModel):
 
 class GenerateApiKeyRequest(BaseModel):
     label: str | None = Field(None, max_length=255)
+    key_type: str = Field("legacy", pattern="^(legacy|publishable|secret)$")
 
 
 class ApiKeyResponse(BaseModel):
     id: str
     key_prefix: str
     label: str | None
+    key_type: str
     status: str
     last_used_at: datetime.datetime | None
     created_at: datetime.datetime

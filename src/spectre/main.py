@@ -157,6 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log_level=settings.log_level,
         is_production=settings.is_production,
         retention=settings.log_retention,
+        enqueue=settings.log_enqueue,
     )
 
     app = FastAPI(
@@ -165,11 +166,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "**AI-Powered Facial Authentication Platform — Identity as a Service**\n\n"
             "Spectre provides biometric face authentication via:\n"
             "- **REST API** — Direct integration for server-to-server face operations\n"
+            "- **Hosted Auth** — Server-created biometric sessions that redirect to "
+            "Spectre-controlled capture UI\n"
             "- **Snap SDK** (`@thewhitenigs/spectre-snap`) — Drop-in React component for "
             "client-side face capture, liveness detection, and identity verification\n\n"
             "### Authentication\n"
             "- **Dashboard endpoints** → JWT Bearer token (`Authorization: Bearer <token>`)\n"
             "- **Face/ML endpoints** → API Key (`X-API-Key: spk_...`)\n\n"
+            "- **Hosted Auth server endpoints** → Secret Key (`X-Spectre-Secret-Key: ssk_...`)\n\n"
             "### Snap SDK Integration\n"
             "```bash\n"
             "npm install @thewhitenigs/spectre-snap\n"
@@ -191,6 +195,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             {"name": "Configuration", "description": "Admin system configuration management with hot-reload"},
             {"name": "SDK Integration", "description": "Endpoints consumed by `@thewhitenigs/spectre-snap` — session polling, mode detection, and ML status. See [NPM package](https://www.npmjs.com/package/@thewhitenigs/spectre-snap)."},
             {"name": "Telemetry", "description": "Frontend logging and error ingestion"},
+            {"name": "Hosted Auth", "description": "Hosted redirect biometric auth sessions, bootstrap, capture, exchange, and JWKS."},
+            {"name": "Webhooks", "description": "Application webhook endpoints and signed event delivery metadata."},
         ]
     )
 
@@ -218,6 +224,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "in": "header",
                 "name": "X-API-Key",
                 "description": "Enter API Key for Face/ML operations."
+            },
+            "SpectreSecretKey": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-Spectre-Secret-Key",
+                "description": "Enter an ssk_ secret key for hosted auth server endpoints."
             }
         }
         app.openapi_schema = openapi_schema
@@ -266,6 +278,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from spectre.interface.routers.client_log_router import router as client_log_router
     from spectre.interface.routers.config_router import router as config_router
     from spectre.interface.routers.admin_router import router as admin_router
+    from spectre.interface.routers.hosted_auth_router import router as hosted_auth_router
+    from spectre.interface.routers.webhook_router import router as webhook_router
 
     app.include_router(health_router)
     app.include_router(auth_router)
@@ -275,5 +289,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(client_log_router)
     app.include_router(config_router)
     app.include_router(admin_router)
+    app.include_router(hosted_auth_router)
+    app.include_router(webhook_router)
 
     return app

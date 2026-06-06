@@ -22,6 +22,7 @@ class TenantApplication:
     liveness_threshold: float = 0.5
     similarity_threshold: float = 0.75
     allowed_ips: list[str] = field(default_factory=list)
+    allowed_origins: list[str] = field(default_factory=list)
     status: Literal["active", "suspended", "deleted"] = "active"
     created_at: datetime.datetime = field(default_factory=datetime.datetime.utcnow)
     updated_at: datetime.datetime = field(default_factory=datetime.datetime.utcnow)

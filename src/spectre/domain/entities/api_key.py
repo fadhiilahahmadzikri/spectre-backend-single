@@ -21,6 +21,7 @@ class ApiKey:
     key_prefix: str  # First 12 chars — for display/lookup
     key_hash: str  # bcrypt hash of the full key
     label: str | None = None
+    key_type: Literal["legacy", "publishable", "secret"] = "legacy"
     status: Literal["active", "grace_period", "revoked"] = "active"
     last_used_at: datetime.datetime | None = None
     expires_at: datetime.datetime | None = None

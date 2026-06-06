@@ -35,7 +35,10 @@ from spectre.infrastructure.database.models.tables import (
     AuthSessionModel,
     FaceProfileModel,
     RefreshTokenModel,
+    SpectreEventModel,
     TenantApplicationModel,
+    WebhookDeliveryModel,
+    WebhookEndpointModel,
     UserModel,
     UserIdentityModel,
     SystemConfigModel,
@@ -83,6 +86,7 @@ def _app_to_entity(m: TenantApplicationModel) -> TenantApplication:
         liveness_threshold=m.liveness_threshold,
         similarity_threshold=m.similarity_threshold,
         allowed_ips=m.allowed_ips or [],
+        allowed_origins=m.allowed_origins or [],
         status=m.status,
         created_at=m.created_at,
         updated_at=m.updated_at,
@@ -96,6 +100,7 @@ def _apikey_to_entity(m: ApiKeyModel) -> ApiKey:
         key_prefix=m.key_prefix,
         key_hash=m.key_hash,
         label=m.label,
+        key_type=m.key_type,
         status=m.status,
         last_used_at=m.last_used_at,
         expires_at=m.expires_at,
@@ -123,6 +128,18 @@ def _session_to_entity(m: AuthSessionModel) -> AuthSession:
         app_id=m.app_id,
         session_type=m.session_type,
         status=m.status,
+        lifecycle_state=m.lifecycle_state,
+        failure_reason=m.failure_reason,
+        expires_at=m.expires_at,
+        idempotency_key=m.idempotency_key,
+        sdk_version=m.sdk_version,
+        client_secret_hash=m.client_secret_hash,
+        return_url=m.return_url,
+        cancel_url=m.cancel_url,
+        locked_at=m.locked_at,
+        exchange_code_hash=m.exchange_code_hash,
+        exchange_code_expires_at=m.exchange_code_expires_at,
+        exchanged_at=m.exchanged_at,
         external_user_id=m.external_user_id,
         liveness_class=m.liveness_class,
         liveness_confidence=m.liveness_confidence,
@@ -252,6 +269,7 @@ class SQLTenantApplicationRepository(AbstractTenantApplicationRepository):
             liveness_threshold=app.liveness_threshold,
             similarity_threshold=app.similarity_threshold,
             allowed_ips=app.allowed_ips,
+            allowed_origins=app.allowed_origins,
             status=app.status,
         )
         self._session.add(model)
@@ -289,6 +307,7 @@ class SQLTenantApplicationRepository(AbstractTenantApplicationRepository):
                 liveness_threshold=app.liveness_threshold,
                 similarity_threshold=app.similarity_threshold,
                 allowed_ips=app.allowed_ips,
+                allowed_origins=app.allowed_origins,
                 status=app.status,
             )
         )
@@ -315,6 +334,7 @@ class SQLApiKeyRepository(AbstractApiKeyRepository):
             key_prefix=api_key.key_prefix,
             key_hash=api_key.key_hash,
             label=api_key.label,
+            key_type=api_key.key_type,
             status=api_key.status,
             expires_at=api_key.expires_at,
         )
@@ -468,8 +488,26 @@ class SQLAuthSessionRepository(AbstractAuthSessionRepository):
             app_id=session.app_id,
             session_type=session.session_type,
             status=session.status,
+            lifecycle_state=session.lifecycle_state,
+            failure_reason=session.failure_reason,
+            expires_at=session.expires_at,
+            idempotency_key=session.idempotency_key,
+            sdk_version=session.sdk_version,
+            client_secret_hash=session.client_secret_hash,
+            return_url=session.return_url,
+            cancel_url=session.cancel_url,
+            locked_at=session.locked_at,
+            exchange_code_hash=session.exchange_code_hash,
+            exchange_code_expires_at=session.exchange_code_expires_at,
+            exchanged_at=session.exchanged_at,
             external_user_id=session.external_user_id,
+            liveness_class=session.liveness_class,
+            liveness_confidence=session.liveness_confidence,
+            similarity_score=session.similarity_score,
+            inference_time_ms=session.inference_time_ms,
             client_metadata=session.client_metadata,
+            created_at=session.created_at,
+            completed_at=session.completed_at,
         )
         self._session.add(model)
         await self._session.flush()
@@ -479,16 +517,52 @@ class SQLAuthSessionRepository(AbstractAuthSessionRepository):
         result = await self._session.get(AuthSessionModel, session_id)
         return _session_to_entity(result) if result else None
 
+    async def get_by_idempotency_key(
+        self, app_id: UUID, idempotency_key: str
+    ) -> AuthSession | None:
+        stmt = select(AuthSessionModel).where(
+            and_(
+                AuthSessionModel.app_id == app_id,
+                AuthSessionModel.idempotency_key == idempotency_key,
+            )
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _session_to_entity(model) if model else None
+
+    async def get_by_exchange_code_hash(
+        self, exchange_code_hash: str
+    ) -> AuthSession | None:
+        stmt = select(AuthSessionModel).where(
+            AuthSessionModel.exchange_code_hash == exchange_code_hash
+        )
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _session_to_entity(model) if model else None
+
     async def update(self, session: AuthSession) -> AuthSession:
         stmt = (
             update(AuthSessionModel)
             .where(AuthSessionModel.id == session.id)
             .values(
                 status=session.status,
+                lifecycle_state=session.lifecycle_state,
+                failure_reason=session.failure_reason,
+                expires_at=session.expires_at,
+                idempotency_key=session.idempotency_key,
+                sdk_version=session.sdk_version,
+                client_secret_hash=session.client_secret_hash,
+                return_url=session.return_url,
+                cancel_url=session.cancel_url,
+                locked_at=session.locked_at,
+                exchange_code_hash=session.exchange_code_hash,
+                exchange_code_expires_at=session.exchange_code_expires_at,
+                exchanged_at=session.exchanged_at,
                 liveness_class=session.liveness_class,
                 liveness_confidence=session.liveness_confidence,
                 similarity_score=session.similarity_score,
                 inference_time_ms=session.inference_time_ms,
+                client_metadata=session.client_metadata,
                 completed_at=session.completed_at,
             )
         )
@@ -590,6 +664,150 @@ class SQLAuditLogRepository(AbstractAuditLogRepository):
         )
         self._session.add(model)
         await self._session.flush()
+
+
+class SQLWebhookRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create_endpoint(
+        self,
+        *,
+        endpoint_id: UUID,
+        app_id: UUID,
+        url: str,
+        secret_encrypted: str,
+        event_types: list[str],
+    ) -> dict[str, Any]:
+        model = WebhookEndpointModel(
+            id=endpoint_id,
+            app_id=app_id,
+            url=url,
+            secret_encrypted=secret_encrypted,
+            event_types=event_types,
+            status="active",
+        )
+        self._session.add(model)
+        await self._session.flush()
+        return self._endpoint_to_dict(model, include_secret=True)
+
+    async def list_endpoints_by_app(self, app_id: UUID) -> list[dict[str, Any]]:
+        stmt = (
+            select(WebhookEndpointModel)
+            .where(WebhookEndpointModel.app_id == app_id)
+            .order_by(WebhookEndpointModel.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return [self._endpoint_to_dict(model) for model in result.scalars().all()]
+
+    async def list_active_endpoints_for_event(
+        self, app_id: UUID, event_type: str
+    ) -> list[WebhookEndpointModel]:
+        stmt = select(WebhookEndpointModel).where(
+            and_(
+                WebhookEndpointModel.app_id == app_id,
+                WebhookEndpointModel.status == "active",
+            )
+        )
+        result = await self._session.execute(stmt)
+        endpoints = result.scalars().all()
+        return [
+            endpoint
+            for endpoint in endpoints
+            if not endpoint.event_types or event_type in endpoint.event_types
+        ]
+
+    async def disable_endpoint(self, endpoint_id: UUID, app_id: UUID) -> bool:
+        stmt = (
+            update(WebhookEndpointModel)
+            .where(
+                and_(
+                    WebhookEndpointModel.id == endpoint_id,
+                    WebhookEndpointModel.app_id == app_id,
+                )
+            )
+            .values(
+                status="disabled",
+                disabled_at=datetime.datetime.now(datetime.timezone.utc),
+            )
+        )
+        result = await self._session.execute(stmt)
+        return bool(result.rowcount)
+
+    async def record_event(
+        self,
+        *,
+        event_id: str,
+        app_id: UUID,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> tuple[dict[str, Any], bool]:
+        existing = await self._session.get(SpectreEventModel, event_id)
+        if existing is not None:
+            return self._event_to_dict(existing), False
+
+        model = SpectreEventModel(
+            id=event_id,
+            app_id=app_id,
+            event_type=event_type,
+            payload=payload,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        return self._event_to_dict(model), True
+
+    async def create_delivery(
+        self,
+        *,
+        delivery_id: UUID,
+        event_id: str,
+        endpoint_id: UUID,
+        signature_header: str,
+    ) -> dict[str, Any]:
+        model = WebhookDeliveryModel(
+            id=delivery_id,
+            event_id=event_id,
+            endpoint_id=endpoint_id,
+            status="pending",
+            signature_header=signature_header,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        return {
+            "id": str(model.id),
+            "event_id": model.event_id,
+            "endpoint_id": str(model.endpoint_id),
+            "status": model.status,
+            "signature_header": model.signature_header,
+            "created_at": model.created_at.isoformat() if model.created_at else None,
+        }
+
+    @staticmethod
+    def _endpoint_to_dict(
+        model: WebhookEndpointModel, *, include_secret: bool = False
+    ) -> dict[str, Any]:
+        data = {
+            "id": str(model.id),
+            "app_id": str(model.app_id),
+            "url": model.url,
+            "event_types": model.event_types or [],
+            "status": model.status,
+            "created_at": model.created_at.isoformat() if model.created_at else None,
+            "disabled_at": model.disabled_at.isoformat() if model.disabled_at else None,
+        }
+        if include_secret:
+            data["secret_encrypted"] = model.secret_encrypted
+        return data
+
+    @staticmethod
+    def _event_to_dict(model: SpectreEventModel) -> dict[str, Any]:
+        return {
+            "id": model.id,
+            "app_id": str(model.app_id),
+            "type": model.event_type,
+            "payload": model.payload,
+            "created_at": model.created_at.isoformat() if model.created_at else None,
+        }
 
 
 class SQLConfigRepository(AbstractConfigRepository):

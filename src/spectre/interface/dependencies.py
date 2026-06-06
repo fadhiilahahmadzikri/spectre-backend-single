@@ -6,6 +6,7 @@ These Depends() functions wire the infrastructure layer to the routers.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from typing import Annotated
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from spectre.config import Settings
+from spectre.domain.entities.api_key import ApiKey
 from spectre.domain.entities.tenant_application import TenantApplication
 from spectre.domain.entities.user import User
 from spectre.infrastructure.cache.redis_client import RedisClient
@@ -172,6 +174,101 @@ async def get_authenticated_app(
 
 
 AuthenticatedApp = Annotated[TenantApplication, Depends(get_authenticated_app)]
+
+
+@dataclass(frozen=True)
+class SecretAuthenticatedApp:
+    app: TenantApplication
+    api_key: ApiKey
+
+
+def _extract_secret_key(
+    x_spectre_secret_key: str | None,
+    authorization: str | None,
+) -> str:
+    if x_spectre_secret_key:
+        return x_spectre_secret_key
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:]
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={
+            "error_code": "INVALID_SECRET_KEY",
+            "message": "Missing Spectre secret key.",
+        },
+    )
+
+
+async def get_secret_authenticated_app(
+    request: Request,
+    x_spectre_secret_key: str | None = Header(None, alias="X-Spectre-Secret-Key"),
+    authorization: str | None = Header(None, alias="Authorization"),
+) -> SecretAuthenticatedApp:
+    plain_key = _extract_secret_key(x_spectre_secret_key, authorization)
+    if not ApiKeyGenerator.is_secret_key(plain_key) or len(plain_key) < 12:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_SECRET_KEY",
+                "message": "Hosted auth requires an ssk_ secret key.",
+            },
+        )
+
+    from spectre.infrastructure.repositories.sql_repositories import (
+        SQLApiKeyRepository,
+        SQLTenantApplicationRepository,
+    )
+
+    settings: Settings = request.app.state.settings
+    keygen = ApiKeyGenerator(settings)
+    session_factory = request.app.state.db_session_factory
+
+    async with session_factory() as session:
+        key_repo = SQLApiKeyRepository(session)
+        api_key = await key_repo.get_by_prefix(plain_key[:12])
+        if not api_key or api_key.key_type != "secret":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "INVALID_SECRET_KEY",
+                    "message": "Secret key not found.",
+                },
+            )
+        if api_key.status not in ("active", "grace_period"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "INVALID_SECRET_KEY",
+                    "message": "Secret key has been revoked.",
+                },
+            )
+        if not keygen.verify(plain_key, api_key.key_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error_code": "INVALID_SECRET_KEY",
+                    "message": "Secret key verification failed.",
+                },
+            )
+
+        await key_repo.update_last_used(api_key.id)
+        app_repo = SQLTenantApplicationRepository(session)
+        app = await app_repo.get_by_id(api_key.app_id)
+        await session.commit()
+
+    if not app or app.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": "INVALID_SECRET_KEY",
+                "message": "Application is not active.",
+            },
+        )
+
+    return SecretAuthenticatedApp(app=app, api_key=api_key)
+
+
+SecretApp = Annotated[SecretAuthenticatedApp, Depends(get_secret_authenticated_app)]
 
 
 # =============================================================================

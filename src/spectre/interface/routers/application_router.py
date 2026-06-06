@@ -20,6 +20,7 @@ from spectre.interface.schemas.application_schema import (
     ApiKeyCreatedResponse,
     ApplicationResponse,
     CreateApplicationRequest,
+    GenerateApiKeyRequest,
     UpdateApplicationRequest,
 )
 from spectre.infrastructure.repositories.sql_repositories import (
@@ -45,6 +46,7 @@ def _app_to_response(app: TenantApplication) -> dict:
         "liveness_threshold": app.liveness_threshold,
         "similarity_threshold": getattr(app, "similarity_threshold", 0.75),
         "allowed_ips": app.allowed_ips or [],
+        "allowed_origins": app.allowed_origins or [],
         "created_at": app.created_at.isoformat() if app.created_at else None,
         "updated_at": app.updated_at.isoformat() if app.updated_at else None,
     }
@@ -133,6 +135,8 @@ async def update_application(
         app.similarity_threshold = body.similarity_threshold
     if body.allowed_ips is not None:
         app.allowed_ips = body.allowed_ips
+    if body.allowed_origins is not None:
+        app.allowed_origins = body.allowed_origins
 
     app.updated_at = datetime.datetime.now(datetime.timezone.utc)
     await app_repo.update(app)
@@ -165,6 +169,7 @@ async def generate_api_key(
     db: DBSession,
     current_user: CurrentUser,
     settings: Settings = Depends(get_settings),
+    body: GenerateApiKeyRequest | None = None,
 ) -> dict:
     """Generate a new API key for the application."""
     app_repo = SQLTenantApplicationRepository(db)
@@ -174,14 +179,17 @@ async def generate_api_key(
     if not app or app.owner_id != current_user.id:
         raise ApplicationNotFoundError()
 
+    request_body = body or GenerateApiKeyRequest()
     keygen = ApiKeyGenerator(settings)
-    key_pair = keygen.generate()
+    key_pair = keygen.generate_for_type(request_body.key_type)
 
     new_key = ApiKey(
         id=uuid.uuid4(),
         app_id=app_id,
         key_prefix=key_pair.prefix,
         key_hash=key_pair.key_hash,
+        label=request_body.label,
+        key_type=request_body.key_type,
         status="active",
         created_at=datetime.datetime.now(datetime.timezone.utc),
     )
@@ -191,7 +199,8 @@ async def generate_api_key(
         "id": str(new_key.id),
         "key_prefix": new_key.key_prefix,
         "full_key": key_pair.full_key,
-        "label": None,
+        "label": new_key.label,
+        "key_type": new_key.key_type,
         "status": "active",
         "last_used_at": None,
         "created_at": new_key.created_at.isoformat() if new_key.created_at else None,
@@ -219,6 +228,7 @@ async def list_api_keys(
                 "id": str(k.id),
                 "key_prefix": k.key_prefix,
                 "label": getattr(k, "label", None),
+                "key_type": k.key_type,
                 "status": k.status,
                 "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
                 "created_at": k.created_at.isoformat() if k.created_at else None,

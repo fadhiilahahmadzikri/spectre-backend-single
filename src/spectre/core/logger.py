@@ -100,6 +100,7 @@ def setup_logging(
     is_production: bool = False,
     retention: str = "30 days",
     diagnose: bool | None = None,
+    enqueue: bool = True,
 ) -> None:
     """Initialize the loguru logging system.
 
@@ -112,6 +113,7 @@ def setup_logging(
         retention: How long to keep rotated log files.
         diagnose: Show local variable values in tracebacks. Defaults to
                   True in dev, False in production (PII protection).
+        enqueue: Use Loguru's multiprocessing-safe queue for file sinks.
     """
     logger.remove()  # Clear default handler
 
@@ -143,7 +145,7 @@ def setup_logging(
         compression="gz",
         backtrace=True,
         diagnose=diagnose,
-        enqueue=True,
+        enqueue=enqueue,
     )
 
     # ── Error file sink (ERROR and above only) ────────────────────────────
@@ -156,7 +158,7 @@ def setup_logging(
         compression="gz",
         backtrace=True,
         diagnose=diagnose,
-        enqueue=True,
+        enqueue=enqueue,
     )
 
     # ── Access file sink (HTTP request/response events) ───────────────────
@@ -167,7 +169,7 @@ def setup_logging(
         rotation="00:00",
         retention=retention,
         compression="gz",
-        enqueue=True,
+        enqueue=enqueue,
         filter=lambda record: record["extra"].get("logger_name", "").startswith(
             "middleware"
         ),
@@ -181,7 +183,7 @@ def setup_logging(
         rotation="00:00",
         retention=retention,
         compression="gz",
-        enqueue=True,
+        enqueue=enqueue,
         filter=lambda record: record["extra"].get("client_log", False),
     )
 

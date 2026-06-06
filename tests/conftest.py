@@ -37,10 +37,12 @@ def test_settings() -> Settings:
     return Settings(
         app_env="development",
         debug=True,
+        log_enqueue=False,
         database_url="sqlite+aiosqlite:///",
         redis_url="redis://localhost:6379/15",
         jwt_secret_key="test_jwt_secret_64_chars_long_enough_for_hmac_hs256_signing_key",
         encryption_key="dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleTE=",
+        bcrypt_cost=4,
         model_path="artifact/best_model.keras",
     )
 
@@ -199,8 +201,8 @@ def test_api_key(test_app_entity) -> ApiKey:
         app_id=test_app_entity.id,
         key_prefix="spk_test1234",
         key_hash="$2b$12$fakehashforkey",
+        key_type="legacy",
         status="active",
-        grace_expires_at=None,
         last_used_at=None,
         created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
         revoked_at=None,
