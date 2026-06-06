@@ -11,6 +11,7 @@ import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 
 from spectre.config import Settings, get_settings
 from spectre.domain.entities.refresh_token import RefreshToken
@@ -358,59 +359,72 @@ async def google_callback(
         SQLRefreshTokenRepository,
     )
     from fastapi import HTTPException
-
-    try:
-        token = await oauth.google.authorize_access_token(request)
-    except Exception as e:
-        if "mismatching_state" in str(e).lower():
-            raise HTTPException(
-                status_code=400,
-                detail={"error_code": "OAUTH_STATE_MISMATCH", "message": "OAuth session expired or already used. Please try again."},
-            )
-        raise HTTPException(status_code=400, detail={"error_code": "OAUTH_FAILED", "message": str(e)})
-    user_info = token.get("userinfo")
-    
-    if not user_info:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Failed to retrieve user info from Google.")
-
-    user_repo = SQLUserRepository(db)
-    use_case = GoogleOAuthUseCase(user_repo)
-    user, created = await use_case.execute(user_info)
-
-    # Issue tokens
-    jwt_handler = JWTHandler(settings)
-    access_token = jwt_handler.create_access_token(
-        user.id, extra_claims={"role": user.role}
-    )
-
-    refresh_raw = secrets.token_urlsafe(48)
-    refresh_hash = hashlib.sha256(refresh_raw.encode()).hexdigest()
-
-    refresh_repo = SQLRefreshTokenRepository(db)
-    await refresh_repo.create(
-        RefreshToken(
-            id=uuid.uuid4(),
-            user_id=user.id,
-            token_hash=refresh_hash,
-            expires_at=datetime.datetime.now(datetime.timezone.utc)
-            + datetime.timedelta(days=settings.jwt_refresh_token_expire_days),
-        )
-    )
-
     from urllib.parse import urlencode
     from fastapi.responses import RedirectResponse
 
-    # Redirect to frontend with tokens
     frontend_url = getattr(settings, "oauth_frontend_redirect", None) or "http://localhost:5173"
 
-    params_dict = {
-        "access_token": access_token,
-        "refresh_token": refresh_raw,
-        "user_id": str(user.id),
-        "email": user.email,
-        "display_name": user.display_name or "",
-        "role": user.role,
-    }
-    params = urlencode(params_dict)
-    return RedirectResponse(url=f"{frontend_url}/oauth/callback?{params}")
+    try:
+        try:
+            token = await oauth.google.authorize_access_token(request)
+        except Exception as e:
+            if "mismatching_state" in str(e).lower():
+                raise HTTPException(
+                    status_code=400,
+                    detail={"error_code": "OAUTH_STATE_MISMATCH", "message": "OAuth session expired or already used. Please try again."},
+                )
+            raise HTTPException(status_code=400, detail={"error_code": "OAUTH_FAILED", "message": str(e)})
+        
+        user_info = token.get("userinfo")
+        if not user_info:
+            raise HTTPException(status_code=400, detail={"error_code": "OAUTH_FAILED", "message": "Failed to retrieve user info from Google."})
+
+        user_repo = SQLUserRepository(db)
+        use_case = GoogleOAuthUseCase(user_repo)
+        user, created = await use_case.execute(user_info)
+
+        # Issue tokens
+        jwt_handler = JWTHandler(settings)
+        access_token = jwt_handler.create_access_token(
+            user.id, extra_claims={"role": user.role}
+        )
+
+        refresh_raw = secrets.token_urlsafe(48)
+        refresh_hash = hashlib.sha256(refresh_raw.encode()).hexdigest()
+
+        refresh_repo = SQLRefreshTokenRepository(db)
+        await refresh_repo.create(
+            RefreshToken(
+                id=uuid.uuid4(),
+                user_id=user.id,
+                token_hash=refresh_hash,
+                expires_at=datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(days=settings.jwt_refresh_token_expire_days),
+            )
+        )
+
+        params_dict = {
+            "access_token": access_token,
+            "refresh_token": refresh_raw,
+            "user_id": str(user.id),
+            "email": user.email,
+            "display_name": user.display_name or "",
+            "role": user.role,
+        }
+        params = urlencode(params_dict)
+        return RedirectResponse(url=f"{frontend_url}/oauth/callback?{params}")
+
+    except HTTPException as he:
+        err_detail = he.detail
+        if isinstance(err_detail, dict):
+            err_code = err_detail.get("error_code", "OAUTH_FAILED")
+            err_msg = err_detail.get("message", "Authentication failed")
+        else:
+            err_code = "OAUTH_FAILED"
+            err_msg = str(err_detail)
+            
+        params = urlencode({"error": err_code, "message": err_msg})
+        return RedirectResponse(url=f"{frontend_url}/oauth/callback?{params}")
+    except Exception as exc:
+        params = urlencode({"error": "OAUTH_FAILED", "message": str(exc)})
+        return RedirectResponse(url=f"{frontend_url}/oauth/callback?{params}")
