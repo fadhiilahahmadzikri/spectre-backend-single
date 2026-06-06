@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Spectre API",
-    "description": "**AI-Powered Facial Authentication Platform \u2014 Identity as a Service**\n\nSpectre provides biometric face authentication via:\n- **REST API** \u2014 Direct integration for server-to-server face operations\n- **Snap SDK** (`@thewhitenigs/spectre-snap`) \u2014 Drop-in React component for client-side face capture, liveness detection, and identity verification\n\n### Authentication\n- **Dashboard endpoints** \u2192 JWT Bearer token (`Authorization: Bearer <token>`)\n- **Face/ML endpoints** \u2192 API Key (`X-API-Key: spk_...`)\n\n### Snap SDK Integration\n```bash\nnpm install @thewhitenigs/spectre-snap\n```\nThe SDK handles camera access, face detection, liveness checks, and API communication. Results are delivered via real-time callbacks; clients can fetch server-confirmed details through the session lookup endpoint.",
+    "description": "**AI-Powered Facial Authentication Platform \u2014 Identity as a Service**\n\nSpectre provides biometric face authentication via:\n- **REST API** \u2014 Direct integration for server-to-server face operations\n- **Hosted Auth** \u2014 Server-created biometric sessions that redirect to Spectre-controlled capture UI\n- **Snap SDK** (`@thewhitenigs/spectre-snap`) \u2014 Drop-in React component for client-side face capture, liveness detection, and identity verification\n\n### Authentication\n- **Dashboard endpoints** \u2192 JWT Bearer token (`Authorization: Bearer <token>`)\n- **Face/ML endpoints** \u2192 API Key (`X-API-Key: spk_...`)\n\n- **Hosted Auth server endpoints** \u2192 Secret Key (`X-Spectre-Secret-Key: ssk_...`)\n\n### Snap SDK Integration\n```bash\nnpm install @thewhitenigs/spectre-snap\n```\nThe SDK handles camera access, face detection, liveness checks, and API communication. Results are delivered via real-time callbacks; clients can fetch server-confirmed details through the session lookup endpoint.",
     "version": "1.1.0"
   },
   "paths": {
@@ -886,6 +886,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/GenerateApiKeyRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -2758,6 +2775,554 @@
           }
         }
       }
+    },
+    "/api/v1/hosted/auth-sessions": {
+      "post": {
+        "tags": [
+          "Hosted Auth"
+        ],
+        "summary": "Create Hosted Auth Session",
+        "operationId": "create_hosted_auth_session_api_v1_hosted_auth_sessions_post",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Spectre-Secret-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Spectre-Secret-Key"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostedAuthSessionCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedAuthSessionCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hosted/auth-sessions/{session_id}/bootstrap": {
+      "get": {
+        "tags": [
+          "Hosted Auth"
+        ],
+        "summary": "Bootstrap Hosted Auth Session",
+        "operationId": "bootstrap_hosted_auth_session_api_v1_hosted_auth_sessions__session_id__bootstrap_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "client_secret",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Client Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedAuthBootstrapResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hosted/auth-sessions/{session_id}/capture": {
+      "post": {
+        "tags": [
+          "Hosted Auth"
+        ],
+        "summary": "Capture Hosted Auth Session",
+        "operationId": "capture_hosted_auth_session_api_v1_hosted_auth_sessions__session_id__capture_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostedAuthCaptureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedAuthCaptureResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hosted/auth-sessions/{session_id}/exchange": {
+      "post": {
+        "tags": [
+          "Hosted Auth"
+        ],
+        "summary": "Exchange Hosted Auth Session",
+        "operationId": "exchange_hosted_auth_session_api_v1_hosted_auth_sessions__session_id__exchange_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Spectre-Secret-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Spectre-Secret-Key"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostedAuthExchangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedAuthExchangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/hosted/auth-sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "Hosted Auth"
+        ],
+        "summary": "Get Hosted Auth Session",
+        "operationId": "get_hosted_auth_session_api_v1_hosted_auth_sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "X-Spectre-Secret-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Spectre-Secret-Key"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedAuthSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/jwks.json": {
+      "get": {
+        "tags": [
+          "Hosted Auth"
+        ],
+        "summary": "Hosted Jwks",
+        "operationId": "hosted_jwks__well_known_jwks_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Hosted Jwks  Well Known Jwks Json Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{app_id}/webhook-endpoints": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Create Webhook Endpoint",
+        "operationId": "create_webhook_endpoint_api_v1_applications__app_id__webhook_endpoints_post",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "App Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpointRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointCreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List Webhook Endpoints",
+        "operationId": "list_webhook_endpoints_api_v1_applications__app_id__webhook_endpoints_get",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "App Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Webhook Endpoints Api V1 Applications  App Id  Webhook Endpoints Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/applications/{app_id}/webhook-endpoints/{endpoint_id}": {
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Disable Webhook Endpoint",
+        "operationId": "disable_webhook_endpoint_api_v1_applications__app_id__webhook_endpoints__endpoint_id__delete",
+        "parameters": [
+          {
+            "name": "app_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "App Id"
+            }
+          },
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Endpoint Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2782,6 +3347,10 @@
               }
             ],
             "title": "Label"
+          },
+          "key_type": {
+            "type": "string",
+            "title": "Key Type"
           },
           "status": {
             "type": "string",
@@ -2814,6 +3383,7 @@
           "id",
           "key_prefix",
           "label",
+          "key_type",
           "status",
           "last_used_at",
           "created_at",
@@ -2846,6 +3416,13 @@
             "type": "array",
             "title": "Allowed Ips"
           },
+          "allowed_origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Origins"
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -2868,6 +3445,7 @@
           "liveness_threshold",
           "similarity_threshold",
           "allowed_ips",
+          "allowed_origins",
           "status",
           "created_at",
           "updated_at"
@@ -3101,6 +3679,26 @@
           "name"
         ],
         "title": "CreateApplicationRequest"
+      },
+      "CreateWebhookEndpointRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "event_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Event Types"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "CreateWebhookEndpointRequest"
       },
       "DBConfigRequest": {
         "properties": {
@@ -3461,6 +4059,30 @@
         "type": "object",
         "title": "FlagsDiagnostics"
       },
+      "GenerateApiKeyRequest": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "key_type": {
+            "type": "string",
+            "pattern": "^(legacy|publishable|secret)$",
+            "title": "Key Type",
+            "default": "legacy"
+          }
+        },
+        "type": "object",
+        "title": "GenerateApiKeyRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3473,6 +4095,528 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HostedAuthBootstrapResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "title": "Lifecycle State"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "register",
+              "authenticate",
+              "auto"
+            ],
+            "title": "Mode"
+          },
+          "external_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External User Id"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "locked": {
+            "type": "boolean",
+            "title": "Locked"
+          },
+          "return_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Url"
+          },
+          "cancel_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Url"
+          },
+          "ui": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Ui"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "lifecycle_state",
+          "mode",
+          "external_user_id",
+          "expires_at",
+          "locked",
+          "return_url",
+          "cancel_url",
+          "ui"
+        ],
+        "title": "HostedAuthBootstrapResponse"
+      },
+      "HostedAuthCaptureRequest": {
+        "properties": {
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image"
+          },
+          "detail_mode": {
+            "type": "boolean",
+            "title": "Detail Mode",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_secret",
+          "image"
+        ],
+        "title": "HostedAuthCaptureRequest"
+      },
+      "HostedAuthCaptureResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "title": "Lifecycle State"
+          },
+          "exchange_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exchange Code"
+          },
+          "redirect_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect Url"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "lifecycle_state",
+          "exchange_code",
+          "redirect_url"
+        ],
+        "title": "HostedAuthCaptureResponse"
+      },
+      "HostedAuthExchangeRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "HostedAuthExchangeRequest"
+      },
+      "HostedAuthExchangeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "app_id": {
+            "type": "string",
+            "title": "App Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "register",
+              "authenticate",
+              "auto"
+            ],
+            "title": "Mode"
+          },
+          "external_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External User Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "title": "Lifecycle State"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "exchanged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exchanged At"
+          },
+          "result_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "app_id",
+          "mode",
+          "external_user_id",
+          "status",
+          "lifecycle_state",
+          "reason_code",
+          "created_at",
+          "locked_at",
+          "completed_at",
+          "exchanged_at"
+        ],
+        "title": "HostedAuthExchangeResponse"
+      },
+      "HostedAuthSessionCreateRequest": {
+        "properties": {
+          "external_user_id": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "External User Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "register",
+              "authenticate",
+              "auto"
+            ],
+            "title": "Mode",
+            "default": "authenticate"
+          },
+          "return_url": {
+            "type": "string",
+            "title": "Return Url"
+          },
+          "cancel_url": {
+            "type": "string",
+            "title": "Cancel Url"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "external_user_id",
+          "return_url",
+          "cancel_url"
+        ],
+        "title": "HostedAuthSessionCreateRequest"
+      },
+      "HostedAuthSessionCreateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "register",
+              "authenticate",
+              "auto"
+            ],
+            "title": "Mode"
+          },
+          "external_user_id": {
+            "type": "string",
+            "title": "External User Id"
+          },
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret"
+          },
+          "hosted_url": {
+            "type": "string",
+            "title": "Hosted Url"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "mode",
+          "external_user_id",
+          "client_secret",
+          "hosted_url",
+          "expires_at"
+        ],
+        "title": "HostedAuthSessionCreateResponse"
+      },
+      "HostedAuthSessionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "app_id": {
+            "type": "string",
+            "title": "App Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "register",
+              "authenticate",
+              "auto"
+            ],
+            "title": "Mode"
+          },
+          "external_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External User Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "title": "Lifecycle State"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "exchanged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exchanged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "app_id",
+          "mode",
+          "external_user_id",
+          "status",
+          "lifecycle_state",
+          "reason_code",
+          "created_at",
+          "locked_at",
+          "completed_at",
+          "exchanged_at"
+        ],
+        "title": "HostedAuthSessionResponse"
       },
       "InferenceDiagnostics": {
         "properties": {
@@ -3909,6 +5053,20 @@
               }
             ],
             "title": "Allowed Ips"
+          },
+          "allowed_origins": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Origins"
           }
         },
         "additionalProperties": false,
@@ -3954,6 +5112,60 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebhookEndpointCreatedResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "app_id": {
+            "type": "string",
+            "title": "App Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "event_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Event Types"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "app_id",
+          "url",
+          "event_types",
+          "status",
+          "secret",
+          "created_at"
+        ],
+        "title": "WebhookEndpointCreatedResponse"
       }
     },
     "securitySchemes": {
@@ -3968,6 +5180,12 @@
         "in": "header",
         "name": "X-API-Key",
         "description": "Enter API Key for Face/ML operations."
+      },
+      "SpectreSecretKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Spectre-Secret-Key",
+        "description": "Enter an ssk_ secret key for hosted auth server endpoints."
       }
     }
   }
